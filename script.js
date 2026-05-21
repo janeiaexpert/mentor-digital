@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'mentor_digital_tarefas';
+const CONFIG_KEY = 'mentor_digital_config';
 
 let tarefas = [];
 let filtroAtual = 'todas';
@@ -21,6 +22,11 @@ const elements = {
   statPendente: document.getElementById('statPendente'),
   statConcluida: document.getElementById('statConcluida'),
   statProgresso: document.getElementById('statProgresso'),
+  btnCustomize: document.getElementById('btnCustomize'),
+  customizePanel: document.getElementById('customizePanel'),
+  closeCustomize: document.getElementById('closeCustomize'),
+  themeOptions: document.getElementById('themeOptions'),
+  fontOptions: document.getElementById('fontOptions'),
 };
 
 function carregarTarefas() {
@@ -82,11 +88,9 @@ function removerTarefa(id) {
 
 function tarefasFiltradas() {
   let lista = tarefas;
-
   if (filtroAtual !== 'todas') {
     lista = lista.filter(t => t.categoria === filtroAtual);
   }
-
   if (termoBusca.trim()) {
     const termo = termoBusca.trim().toLowerCase();
     lista = lista.filter(t =>
@@ -94,7 +98,6 @@ function tarefasFiltradas() {
       (t.descricao && t.descricao.toLowerCase().includes(termo))
     );
   }
-
   return lista.sort((a, b) => {
     const pr = { alta: 0, media: 1, baixa: 2 };
     if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
@@ -107,7 +110,6 @@ function atualizarDashboard() {
   const concluidas = tarefas.filter(t => t.concluida).length;
   const pendentes = total - concluidas;
   const progresso = total > 0 ? Math.round((concluidas / total) * 100) : 0;
-
   elements.statTotal.textContent = total;
   elements.statPendente.textContent = pendentes;
   elements.statConcluida.textContent = concluidas;
@@ -117,19 +119,16 @@ function atualizarDashboard() {
 function renderizar() {
   const lista = tarefasFiltradas();
   atualizarDashboard();
-
   if (lista.length === 0) {
     elements.taskList.innerHTML = '<p class="empty-msg">Nenhuma tarefa encontrada. Crie sua primeira tarefa acima!</p>';
     return;
   }
-
   elements.taskList.innerHTML = lista.map(tarefa => {
     const concluidaClass = tarefa.concluida ? 'concluida' : '';
     const checkedClass = tarefa.concluida ? 'checked' : '';
     const prioridadeClass = 'prioridade-' + tarefa.prioridade;
     const catLabels = { diaria: 'Diária', semanal: 'Semanal', mensal: 'Mensal' };
     const priLabels = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
-
     return `
       <div class="task-item ${concluidaClass} ${prioridadeClass}">
         <div class="task-check ${checkedClass}" data-id="${tarefa.id}">${tarefa.concluida ? '&#10003;' : ''}</div>
@@ -148,15 +147,12 @@ function renderizar() {
       </div>
     `;
   }).join('');
-
   elements.taskList.querySelectorAll('.task-check').forEach(el => {
     el.addEventListener('click', () => toggleConcluida(el.dataset.id));
   });
-
   elements.taskList.querySelectorAll('[data-edit]').forEach(el => {
     el.addEventListener('click', () => abrirModal(el.dataset.edit));
   });
-
   elements.taskList.querySelectorAll('[data-delete]').forEach(el => {
     el.addEventListener('click', () => removerTarefa(el.dataset.delete));
   });
@@ -183,15 +179,74 @@ function fecharModal() {
   elements.editModal.classList.remove('active');
 }
 
+function carregarConfig() {
+  try {
+    const dados = localStorage.getItem(CONFIG_KEY);
+    return dados ? JSON.parse(dados) : { tema: 'padrao', fonte: 'padrao' };
+  } catch {
+    return { tema: 'padrao', fonte: 'padrao' };
+  }
+}
+
+function salvarConfig(config) {
+  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
+}
+
+function aplicarTema(tema) {
+  document.body.classList.toggle('theme-personalizado', tema === 'personalizado');
+  elements.themeOptions.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === tema);
+  });
+}
+
+function aplicarFonte(fonte) {
+  document.body.classList.remove('fonte-serif', 'fonte-arial');
+  if (fonte !== 'padrao') {
+    document.body.classList.add('fonte-' + fonte);
+  }
+  elements.fontOptions.querySelectorAll('.font-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.font === fonte);
+  });
+}
+
+function aplicarConfig(config) {
+  aplicarTema(config.tema);
+  aplicarFonte(config.fonte);
+}
+
+let config = carregarConfig();
+
+elements.btnCustomize.addEventListener('click', () => {
+  elements.customizePanel.classList.toggle('customize-hidden');
+});
+
+elements.closeCustomize.addEventListener('click', () => {
+  elements.customizePanel.classList.add('customize-hidden');
+});
+
+elements.themeOptions.addEventListener('click', (e) => {
+  const btn = e.target.closest('.theme-btn');
+  if (!btn) return;
+  config.tema = btn.dataset.theme;
+  salvarConfig(config);
+  aplicarConfig(config);
+});
+
+elements.fontOptions.addEventListener('click', (e) => {
+  const btn = e.target.closest('.font-btn');
+  if (!btn) return;
+  config.fonte = btn.dataset.font;
+  salvarConfig(config);
+  aplicarConfig(config);
+});
+
 elements.taskForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const titulo = document.getElementById('taskTitle').value.trim();
   const descricao = document.getElementById('taskDesc').value.trim();
   const categoria = document.getElementById('taskCategory').value;
   const prioridade = document.getElementById('taskPriority').value;
-
   if (!titulo) return;
-
   adicionarTarefa(titulo, descricao, categoria, prioridade);
   elements.taskForm.reset();
   document.getElementById('taskTitle').focus();
@@ -204,19 +259,15 @@ elements.editForm.addEventListener('submit', (e) => {
   const descricao = elements.editDesc.value.trim();
   const categoria = elements.editCategory.value;
   const prioridade = elements.editPriority.value;
-
   if (!id || !titulo) return;
-
   editarTarefa(id, titulo, descricao, categoria, prioridade);
   fecharModal();
 });
 
 elements.cancelEdit.addEventListener('click', fecharModal);
-
 elements.editModal.addEventListener('click', (e) => {
   if (e.target === elements.editModal) fecharModal();
 });
-
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') fecharModal();
 });
@@ -224,7 +275,6 @@ document.addEventListener('keydown', (e) => {
 elements.filterTabs.addEventListener('click', (e) => {
   const btn = e.target.closest('.filter-btn');
   if (!btn) return;
-
   elements.filterTabs.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filtroAtual = btn.dataset.filter;
@@ -237,4 +287,5 @@ elements.searchInput.addEventListener('input', (e) => {
 });
 
 carregarTarefas();
+aplicarConfig(config);
 renderizar();

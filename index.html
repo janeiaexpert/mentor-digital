@@ -9,9 +9,12 @@
 <body>
   <header>
     <div class="container header-content">
-      <div class="logo">
-        <span class="logo-icon">&#9670;</span>
-        <h1>Mentor Digital</h1>
+      <div class="header-top">
+        <div class="logo">
+          <span class="logo-icon">&#9670;</span>
+          <h1>Mentor Digital</h1>
+        </div>
+        <button class="btn-customize" id="btnCustomize">Personalizar</button>
       </div>
       <p class="subtitle">Gerencie suas rotinas e acompanhe seu progresso</p>
     </div>
@@ -34,6 +37,39 @@
       <div class="card stat-card" data-stat="progresso">
         <span class="stat-number" id="statProgresso">0%</span>
         <span class="stat-label">Progresso</span>
+      </div>
+    </section>
+
+    <section class="customize-panel card customize-hidden" id="customizePanel">
+      <h2>Personalizar <button class="close-customize" id="closeCustomize">&#10005;</button></h2>
+      <div class="customize-section">
+        <label>Tema</label>
+        <div class="theme-options" id="themeOptions">
+          <button class="theme-btn active" data-theme="padrao">
+            <span>Padrão</span>
+            <span class="theme-preview">
+              <span style="background:#f0f2f5"></span>
+              <span style="background:#6c5ce7"></span>
+              <span style="background:#ffffff"></span>
+            </span>
+          </button>
+          <button class="theme-btn" data-theme="personalizado">
+            <span>Escuro + Marrom</span>
+            <span class="theme-preview">
+              <span style="background:#000000"></span>
+              <span style="background:#8B4513"></span>
+              <span style="background:#D4AF37"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+      <div class="customize-section">
+        <label>Fonte</label>
+        <div class="font-options" id="fontOptions">
+          <button class="font-btn active" data-font="padrao">Sistema <span class="font-name">Padrão</span></button>
+          <button class="font-btn" data-font="serif">Serif <span class="font-name" style="font-family:Georgia,serif">Georgia / Times</span></button>
+          <button class="font-btn" data-font="arial">Arial <span class="font-name" style="font-family:Arial,sans-serif;font-weight:700">Arial Bold</span></button>
+        </div>
       </div>
     </section>
 
