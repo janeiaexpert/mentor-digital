@@ -1,9 +1,10 @@
-const STORAGE_KEY = 'mentor_digital_tarefas';
+const API = '';
 const CONFIG_KEY = 'mentor_digital_config';
 
 let tarefas = [];
 let filtroAtual = 'todas';
 let termoBusca = '';
+let usuario = null;
 
 const elements = {
   taskForm: document.getElementById('taskForm'),
@@ -27,62 +28,69 @@ const elements = {
   closeCustomize: document.getElementById('closeCustomize'),
   themeOptions: document.getElementById('themeOptions'),
   fontOptions: document.getElementById('fontOptions'),
+  userName: document.getElementById('userName'),
+  userArea: document.getElementById('userArea'),
+  btnLogout: document.getElementById('btnLogout'),
 };
 
-function carregarTarefas() {
+function getToken() {
+  return localStorage.getItem('token');
+}
+
+async function api(path, options = {}) {
+  const token = getToken();
+  const headers = { 'Content-Type': 'application/json', ...options.headers };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+
+  const res = await fetch(API + path, { ...options, headers });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.erro || 'Erro na requisicao');
+  return json;
+}
+
+async function carregarTarefas() {
   try {
-    const dados = localStorage.getItem(STORAGE_KEY);
-    tarefas = dados ? JSON.parse(dados) : [];
+    tarefas = await api('/api/tarefas');
   } catch {
     tarefas = [];
   }
 }
 
-function salvarTarefas() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
-}
-
-function gerarId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-}
-
-function adicionarTarefa(titulo, descricao, categoria, prioridade) {
-  tarefas.push({
-    id: gerarId(),
-    titulo,
-    descricao,
-    categoria,
-    prioridade,
-    concluida: false,
-    criadaEm: new Date().toISOString(),
+async function adicionarTarefa(titulo, descricao, categoria, prioridade) {
+  const tarefa = await api('/api/tarefas', {
+    method: 'POST',
+    body: JSON.stringify({ titulo, descricao, categoria, prioridade }),
   });
-  salvarTarefas();
+  tarefas.push(tarefa);
   renderizar();
 }
 
-function editarTarefa(id, titulo, descricao, categoria, prioridade) {
+async function editarTarefa(id, titulo, descricao, categoria, prioridade) {
+  const updated = await api('/api/tarefas/' + id, {
+    method: 'PUT',
+    body: JSON.stringify({ titulo, descricao, categoria, prioridade }),
+  });
+  const idx = tarefas.findIndex(t => t.id === id);
+  if (idx !== -1) tarefas[idx] = updated;
+  renderizar();
+}
+
+async function toggleConcluida(id) {
   const tarefa = tarefas.find(t => t.id === id);
   if (!tarefa) return;
-  tarefa.titulo = titulo;
-  tarefa.descricao = descricao;
-  tarefa.categoria = categoria;
-  tarefa.prioridade = prioridade;
-  salvarTarefas();
+  const updated = await api('/api/tarefas/' + id, {
+    method: 'PUT',
+    body: JSON.stringify({ concluida: !tarefa.concluida }),
+  });
+  const idx = tarefas.findIndex(t => t.id === id);
+  if (idx !== -1) tarefas[idx] = updated;
   renderizar();
 }
 
-function toggleConcluida(id) {
-  const tarefa = tarefas.find(t => t.id === id);
-  if (!tarefa) return;
-  tarefa.concluida = !tarefa.concluida;
-  salvarTarefas();
-  renderizar();
-}
-
-function removerTarefa(id) {
+async function removerTarefa(id) {
   if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return;
+  await api('/api/tarefas/' + id, { method: 'DELETE' });
   tarefas = tarefas.filter(t => t.id !== id);
-  salvarTarefas();
   renderizar();
 }
 
@@ -240,19 +248,25 @@ elements.fontOptions.addEventListener('click', (e) => {
   aplicarConfig(config);
 });
 
-elements.taskForm.addEventListener('submit', (e) => {
+elements.btnLogout.addEventListener('click', () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('usuario');
+  window.location.href = '/login.html';
+});
+
+elements.taskForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const titulo = document.getElementById('taskTitle').value.trim();
   const descricao = document.getElementById('taskDesc').value.trim();
   const categoria = document.getElementById('taskCategory').value;
   const prioridade = document.getElementById('taskPriority').value;
   if (!titulo) return;
-  adicionarTarefa(titulo, descricao, categoria, prioridade);
+  await adicionarTarefa(titulo, descricao, categoria, prioridade);
   elements.taskForm.reset();
   document.getElementById('taskTitle').focus();
 });
 
-elements.editForm.addEventListener('submit', (e) => {
+elements.editForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const id = elements.editId.value;
   const titulo = elements.editTitle.value.trim();
@@ -260,7 +274,7 @@ elements.editForm.addEventListener('submit', (e) => {
   const categoria = elements.editCategory.value;
   const prioridade = elements.editPriority.value;
   if (!id || !titulo) return;
-  editarTarefa(id, titulo, descricao, categoria, prioridade);
+  await editarTarefa(id, titulo, descricao, categoria, prioridade);
   fecharModal();
 });
 
@@ -286,6 +300,26 @@ elements.searchInput.addEventListener('input', (e) => {
   renderizar();
 });
 
-carregarTarefas();
-aplicarConfig(config);
-renderizar();
+async function init() {
+  const token = getToken();
+  if (!token) {
+    window.location.href = '/login.html';
+    return;
+  }
+
+  try {
+    usuario = await api('/api/me');
+    if (elements.userName) elements.userName.textContent = usuario.nome;
+  } catch {
+    localStorage.removeItem('token');
+    localStorage.removeItem('usuario');
+    window.location.href = '/login.html';
+    return;
+  }
+
+  await carregarTarefas();
+  aplicarConfig(config);
+  renderizar();
+}
+
+init();
