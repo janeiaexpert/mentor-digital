@@ -1,5 +1,5 @@
-const { listTasks, createTask, updateTask, deleteTask } = require('../lib/supabase')
-const { sendMessage } = require('../lib/telegram')
+const { listTasks, createTask, updateTask, deleteTask } = require('./lib/supabase')
+const { sendMessage } = require('./lib/telegram')
 
 function esc(text) {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -14,8 +14,7 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const slug = req.query.slug || []
-    const id = slug[0] || null
+    const id = req.query.id || null
 
     if (req.method === 'GET' && !id) {
       const data = await listTasks()

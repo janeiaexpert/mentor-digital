@@ -44,8 +44,8 @@ const api = {
   },
   list() { return this.request('GET', '/tasks') },
   create(data) { return this.request('POST', '/tasks', { ...data, source: 'web' }) },
-  update(id, data) { return this.request('PATCH', '/tasks/' + id, data) },
-  remove(id) { return this.request('DELETE', '/tasks/' + id) },
+  update(id, data) { return this.request('PATCH', '/tasks?id=' + id, data) },
+  remove(id) { return this.request('DELETE', '/tasks?id=' + id) },
 }
 
 function salvarCache() {
