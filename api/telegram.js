@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   }
 
   const { message, chatId } = req.body;
-  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN;
 
   if (!token) {
     return res.status(500).json({ error: 'TELEGRAM_BOT_TOKEN not configured' });
