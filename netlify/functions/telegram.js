@@ -1,4 +1,4 @@
-const { getClient } = require('./lib/supabase')
+const { listTasks, createTask, getTask, updateTask, deleteTask } = require('./lib/supabase')
 const { sendMessage } = require('./lib/telegram')
 
 exports.handler = async (event) => {
@@ -17,8 +17,6 @@ exports.handler = async (event) => {
     const chatId = msg.chat.id
     const text = msg.text.trim()
     const firstName = msg.from?.first_name || 'Usuário'
-
-    // Verificação de chat ID removida temporariamente para testes
 
     if (text.startsWith('/start')) {
       return await cmdStart(chatId, firstName)
@@ -101,45 +99,30 @@ async function cmdHelp(chatId) {
 }
 
 async function cmdStats(chatId) {
-  const supabase = getClient()
-  if (!supabase) {
-    await sendMessage(chatId, '❌ Banco de dados não configurado.')
-    return
-  }
-
-  const { data, error } = await supabase.from('tasks').select('*')
-  if (error) {
+  try {
+    const data = await listTasks()
+    const total = data.length
+    const concluidas = data.filter(t => t.concluida).length
+    const pendentes = total - concluidas
+    const progresso = total > 0 ? Math.round((concluidas / total) * 100) : 0
+    const bar = gerarBarra(progresso)
+    const text = [
+      '📊 <b>Suas Estatísticas</b>',
+      '',
+      `📌 Total: <b>${total}</b>`,
+      `⏳ Pendentes: <b>${pendentes}</b>`,
+      `✅ Concluídas: <b>${concluidas}</b>`,
+      `📈 Progresso: <b>${progresso}%</b>`,
+      '',
+      bar,
+    ].join('\n')
+    await sendMessage(chatId, text)
+  } catch {
     await sendMessage(chatId, '❌ Erro ao consultar tarefas.')
-    return
   }
-
-  const total = data.length
-  const concluidas = data.filter(t => t.concluida).length
-  const pendentes = total - concluidas
-  const progresso = total > 0 ? Math.round((concluidas / total) * 100) : 0
-
-  const bar = gerarBarra(progresso)
-
-  const text = [
-    '📊 <b>Suas Estatísticas</b>',
-    '',
-    `📌 Total: <b>${total}</b>`,
-    `⏳ Pendentes: <b>${pendentes}</b>`,
-    `✅ Concluídas: <b>${concluidas}</b>`,
-    `📈 Progresso: <b>${progresso}%</b>`,
-    '',
-    bar,
-  ].join('\n')
-  await sendMessage(chatId, text)
 }
 
 async function cmdAdd(chatId, args) {
-  const supabase = getClient()
-  if (!supabase) {
-    await sendMessage(chatId, '❌ Banco de dados não configurado.')
-    return
-  }
-
   const parts = args.split('|').map(s => s.trim())
   const titulo = parts[0]
   if (!titulo) {
@@ -147,130 +130,87 @@ async function cmdAdd(chatId, args) {
     return
   }
 
-  const task = {
-    titulo,
-    descricao: parts[1] || '',
-    categoria: ['diaria', 'semanal', 'mensal'].includes(parts[2]) ? parts[2] : 'diaria',
-    prioridade: ['alta', 'media', 'baixa'].includes(parts[3]) ? parts[3] : 'media',
+  try {
+    const result = await createTask({
+      titulo,
+      descricao: parts[1] || '',
+      categoria: ['diaria', 'semanal', 'mensal'].includes(parts[2]) ? parts[2] : 'diaria',
+      prioridade: ['alta', 'media', 'baixa'].includes(parts[3]) ? parts[3] : 'media',
+    })
+    const task = Array.isArray(result) ? result[0] : result
+
+    const catLabels = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' }
+    const priLabels = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
+
+    const text = [
+      '✅ <b>Tarefa criada com sucesso!</b>',
+      '',
+      `<b>${esc(task.titulo)}</b>`,
+      task.descricao ? esc(task.descricao) : '',
+      '',
+      `${catLabels[task.categoria] || task.categoria} | ${priLabels[task.prioridade] || task.prioridade}`,
+      '',
+      `ID: <code>${task.id}</code>`,
+    ].filter(Boolean).join('\n')
+
+    await sendMessage(chatId, text)
+  } catch (err) {
+    await sendMessage(chatId, '❌ Erro ao criar tarefa.')
   }
-
-  const { data, error } = await supabase
-    .from('tasks')
-    .insert(task)
-    .select()
-    .single()
-
-  if (error) {
-    await sendMessage(chatId, '❌ Erro ao criar tarefa: ' + error.message)
-    return
-  }
-
-  const catLabels = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' }
-  const priLabels = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
-
-  const text = [
-    '✅ <b>Tarefa criada com sucesso!</b>',
-    '',
-    `<b>${esc(data.titulo)}</b>`,
-    data.descricao ? esc(data.descricao) : '',
-    '',
-    `${catLabels[data.categoria] || data.categoria} | ${priLabels[data.prioridade] || data.prioridade}`,
-    '',
-    `ID: <code>${data.id}</code>`,
-  ].filter(Boolean).join('\n')
-
-  await sendMessage(chatId, text)
 }
 
 async function cmdList(chatId) {
-  const supabase = getClient()
-  if (!supabase) {
-    await sendMessage(chatId, '❌ Banco de dados não configurado.')
-    return
-  }
+  try {
+    const data = await listTasks()
+    if (!data || data.length === 0) {
+      await sendMessage(chatId, '📭 Nenhuma tarefa encontrada. Crie uma com /add')
+      return
+    }
 
-  const { data, error } = await supabase
-    .from('tasks')
-    .select('*')
-    .order('criada_em', { ascending: false })
+    const pendentes = data.filter(t => !t.concluida)
+    const concluidas = data.filter(t => t.concluida)
 
-  if (error) {
+    let text = `📋 <b>Suas Tarefas</b> (${data.length} total)`
+    text += `\n⏳ ${pendentes.length} pendentes | ✅ ${concluidas.length} concluídas\n`
+
+    if (pendentes.length > 0) {
+      text += '\n<b>--- Pendentes ---</b>\n'
+      text += pendentes.slice(0, 10).map(t => formatTask(t)).join('\n')
+      if (pendentes.length > 10) text += `\n... e mais ${pendentes.length - 10} tarefas pendentes`
+    }
+
+    if (concluidas.length > 0) {
+      text += '\n<b>--- Concluídas (últimas 5) ---</b>\n'
+      text += concluidas.slice(0, 5).map(t => formatTask(t)).join('\n')
+    }
+
+    await sendMessage(chatId, text)
+  } catch {
     await sendMessage(chatId, '❌ Erro ao listar tarefas.')
-    return
   }
-
-  if (!data || data.length === 0) {
-    await sendMessage(chatId, '📭 Nenhuma tarefa encontrada. Crie uma com /add')
-    return
-  }
-
-  const pendentes = data.filter(t => !t.concluida)
-  const concluidas = data.filter(t => t.concluida)
-
-  let text = `📋 <b>Suas Tarefas</b> (${data.length} total)`
-  text += `\n⏳ ${pendentes.length} pendentes | ✅ ${concluidas.length} concluídas\n`
-
-  if (pendentes.length > 0) {
-    text += '\n<b>--- Pendentes ---</b>\n'
-    text += pendentes.slice(0, 10).map(t => formatTask(t)).join('\n')
-    if (pendentes.length > 10) text += `\n... e mais ${pendentes.length - 10} tarefas pendentes`
-  }
-
-  if (concluidas.length > 0) {
-    text += '\n<b>--- Concluídas (últimas 5) ---</b>\n'
-    text += concluidas.slice(0, 5).map(t => formatTask(t)).join('\n')
-  }
-
-  await sendMessage(chatId, text)
 }
 
 async function cmdDone(chatId, id) {
-  const supabase = getClient()
-  if (!supabase) {
-    await sendMessage(chatId, '❌ Banco de dados não configurado.')
-    return
-  }
-
-  const { data, error } = await supabase
-    .from('tasks')
-    .update({ concluida: true, concluida_em: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error || !data) {
+  try {
+    const result = await updateTask(id, { concluida: true, concluida_em: new Date().toISOString() })
+    const task = Array.isArray(result) ? result[0] : result
+    if (!task) throw new Error('Not found')
+    await sendMessage(chatId, `✅ <b>Tarefa concluída!</b>\n\n${esc(task.titulo)}`)
+  } catch {
     await sendMessage(chatId, `❌ Tarefa não encontrada. Use /list para ver os IDs.`)
-    return
   }
-
-  await sendMessage(chatId, `✅ <b>Tarefa concluída!</b>\n\n${esc(data.titulo)}`)
 }
 
 async function cmdDelete(chatId, id) {
-  const supabase = getClient()
-  if (!supabase) {
-    await sendMessage(chatId, '❌ Banco de dados não configurado.')
-    return
-  }
-
-  const { data, error: fetchError } = await supabase
-    .from('tasks')
-    .select('titulo')
-    .eq('id', id)
-    .single()
-
-  if (fetchError || !data) {
+  try {
+    const result = await getTask(id)
+    const task = Array.isArray(result) ? result[0] : result
+    if (!task) throw new Error('Not found')
+    await deleteTask(id)
+    await sendMessage(chatId, `🗑️ <b>Tarefa excluída:</b> ${esc(task.titulo)}`)
+  } catch {
     await sendMessage(chatId, `❌ Tarefa não encontrada. Use /list para ver os IDs.`)
-    return
   }
-
-  const { error } = await supabase.from('tasks').delete().eq('id', id)
-  if (error) {
-    await sendMessage(chatId, '❌ Erro ao excluir tarefa.')
-    return
-  }
-
-  await sendMessage(chatId, `🗑️ <b>Tarefa excluída:</b> ${esc(data.titulo)}`)
 }
 
 function formatTask(t) {
@@ -280,7 +220,6 @@ function formatTask(t) {
   const cat = catLabels[t.categoria] || '📌'
   const pri = priLabels[t.prioridade] || '⚪'
   const title = t.titulo.length > 40 ? t.titulo.slice(0, 40) + '…' : t.titulo
-
   return `${status} <code>${t.id.slice(0, 8)}</code> ${cat} ${pri} <b>${esc(title)}</b>`
 }
 

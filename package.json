@@ -1,8 +1,0 @@
-{
-  "name": "mentor-digital",
-  "version": "2.0.0",
-  "description": "Gerenciador de rotina e progresso com integração Telegram",
-  "dependencies": {
-    "@supabase/supabase-js": "^2.39.0"
-  }
-}
