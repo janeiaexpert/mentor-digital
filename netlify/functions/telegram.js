@@ -208,7 +208,7 @@ async function cmdList(chatId) {
   const concluidas = data.filter(t => t.concluida)
 
   let text = `📋 <b>Suas Tarefas</b> (${data.length} total)`
-  text += `\n⏳ ${pendentes} pendentes | ✅ ${concluidas.length} concluídas\n`
+  text += `\n⏳ ${pendentes.length} pendentes | ✅ ${concluidas.length} concluídas\n`
 
   if (pendentes.length > 0) {
     text += '\n<b>--- Pendentes ---</b>\n'
