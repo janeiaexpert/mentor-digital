@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'mentor_digital_tarefas';
 const CONFIG_KEY = 'mentor_digital_config';
+const TELEGRAM_KEY = 'mentor_digital_telegram';
 const API_BASE = '/api';
 
 let tarefas = [];
@@ -28,6 +29,11 @@ const elements = {
   closeCustomize: document.getElementById('closeCustomize'),
   themeOptions: document.getElementById('themeOptions'),
   fontOptions: document.getElementById('fontOptions'),
+  telegramChatId: document.getElementById('telegramChatId'),
+  btnTestTelegram: document.getElementById('btnTestTelegram'),
+  btnSaveTelegram: document.getElementById('btnSaveTelegram'),
+  telegramStatus: document.getElementById('telegramStatus'),
+  statusDot: document.querySelector('.status-dot'),
 };
 
 const api = {
@@ -46,6 +52,51 @@ const api = {
   create(data) { return this.request('POST', '/tasks', { ...data, source: 'web' }) },
   update(id, data) { return this.request('PATCH', '/tasks?id=' + id, data) },
   remove(id) { return this.request('DELETE', '/tasks?id=' + id) },
+}
+
+function carregarTelegram() {
+  try {
+    const dados = localStorage.getItem(TELEGRAM_KEY);
+    return dados ? JSON.parse(dados) : { chatId: '' };
+  } catch {
+    return { chatId: '' };
+  }
+}
+
+function salvarTelegram(data) {
+  localStorage.setItem(TELEGRAM_KEY, JSON.stringify(data));
+  atualizarStatusTelegram();
+}
+
+function atualizarStatusTelegram() {
+  const data = carregarTelegram();
+  const conectado = !!data.chatId;
+  if (elements.statusDot) {
+    elements.statusDot.className = 'status-dot ' + (conectado ? 'online' : 'offline');
+    const label = document.querySelector('#telegramStatus span:last-child');
+    if (label) label.textContent = conectado ? 'Conectado' : 'Desconectado';
+  }
+}
+
+async function enviarTelegram(mensagem) {
+  const data = carregarTelegram();
+  if (!data.chatId) return;
+  try {
+    await fetch('/api/telegram', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chatId: data.chatId, message: mensagem }),
+    });
+  } catch {}
+}
+
+function notificarTelegram(tipo, tarefa) {
+  const icons = { adicionada: '➕', concluida: '✅', desfeita: '↩️', excluida: '🗑️' };
+  const icon = icons[tipo] || '📌';
+  const prioridade = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
+  const categoria = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' };
+  const texto = `${icon} <b>Tarefa ${tipo}</b>\n\n📌 ${tarefa.titulo}\n📂 ${categoria[tarefa.categoria]}\n🏷 ${prioridade[tarefa.prioridade]}${tarefa.descricao ? '\n📝 ' + tarefa.descricao : ''}`;
+  enviarTelegram(texto);
 }
 
 function salvarCache() {
@@ -96,6 +147,7 @@ async function adicionarTarefa(titulo, descricao, categoria, prioridade) {
     })
   }
   salvarCache()
+  notificarTelegram('adicionada', tarefas[0])
   renderizar()
 }
 
@@ -132,17 +184,20 @@ async function toggleConcluida(id) {
   } catch {
   }
   salvarCache()
+  notificarTelegram(tarefa.concluida ? 'concluida' : 'desfeita', tarefa)
   renderizar()
 }
 
 async function removerTarefa(id) {
   if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return
+  const removida = tarefas.find(t => t.id === id)
   try {
     await api.remove(id)
   } catch {
   }
   tarefas = tarefas.filter(t => t.id !== id)
   salvarCache()
+  if (removida) notificarTelegram('excluida', removida)
   renderizar()
 }
 
@@ -275,6 +330,42 @@ function aplicarConfig(config) {
 }
 
 let config = carregarConfig();
+let telegramConfig = carregarTelegram();
+
+if (elements.telegramChatId) {
+  elements.telegramChatId.value = telegramConfig.chatId;
+
+  elements.btnSaveTelegram.addEventListener('click', () => {
+    const chatId = elements.telegramChatId.value.trim();
+    if (!chatId) return;
+    salvarTelegram({ chatId });
+    alert('Configuração salva!');
+  });
+
+  elements.btnTestTelegram.addEventListener('click', async () => {
+    const chatId = elements.telegramChatId.value.trim();
+    if (!chatId) { alert('Informe um Chat ID primeiro.'); return; }
+    salvarTelegram({ chatId });
+    const msg = '🔔 <b>Mentor Digital</b>\nConexão estabelecida com sucesso! ✅';
+    try {
+      const res = await fetch('/api/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatId, message: msg }),
+      });
+      if (res.ok) {
+        alert('Mensagem enviada! Verifique seu Telegram.');
+      } else {
+        const err = await res.json();
+        alert('Erro: ' + (err.error || 'Falha ao enviar'));
+      }
+    } catch {
+      alert('Erro de conexão com o servidor.');
+    }
+  });
+}
+
+atualizarStatusTelegram();
 
 elements.btnCustomize.addEventListener('click', () => {
   elements.customizePanel.classList.toggle('customize-hidden');

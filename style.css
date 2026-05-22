@@ -595,6 +595,42 @@ header {
   display: none !important;
 }
 
+.telegram-section {
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.telegram-section h2 {
+  font-size: 18px;
+  margin-bottom: 12px;
+}
+
+.telegram-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot.online {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+}
+
+.status-dot.offline {
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+}
+
 @media (max-width: 700px) {
   .dashboard {
     grid-template-columns: repeat(2, 1fr);
