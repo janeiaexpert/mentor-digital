@@ -1,4 +1,4 @@
-const { listTasks, createTask, getTask, updateTask, deleteTask } = require('./lib/supabase')
+const { listTasks, createTask, getTask, findTaskByPrefix, updateTask, deleteTask } = require('./lib/supabase')
 const { sendMessage } = require('./lib/telegram')
 
 module.exports = async (req, res) => {
@@ -185,7 +185,9 @@ async function cmdList(chatId) {
 
 async function cmdDone(chatId, id) {
   try {
-    const result = await updateTask(id, { concluida: true, concluida_em: new Date().toISOString() })
+    const fullId = await findTaskByPrefix(id)
+    if (!fullId) throw new Error('Not found')
+    const result = await updateTask(fullId, { concluida: true, concluida_em: new Date().toISOString() })
     const task = Array.isArray(result) ? result[0] : result
     if (!task) throw new Error('Not found')
     await sendMessage(chatId, `✅ <b>Tarefa concluída!</b>\n\n${esc(task.titulo)}`)
@@ -196,10 +198,12 @@ async function cmdDone(chatId, id) {
 
 async function cmdDelete(chatId, id) {
   try {
-    const result = await getTask(id)
+    const fullId = await findTaskByPrefix(id)
+    if (!fullId) throw new Error('Not found')
+    const result = await getTask(fullId)
     const task = Array.isArray(result) ? result[0] : result
     if (!task) throw new Error('Not found')
-    await deleteTask(id)
+    await deleteTask(fullId)
     await sendMessage(chatId, `🗑️ <b>Tarefa excluída:</b> ${esc(task.titulo)}`)
   } catch {
     await sendMessage(chatId, `❌ Tarefa não encontrada. Use /list para ver os IDs.`)

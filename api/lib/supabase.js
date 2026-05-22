@@ -25,6 +25,11 @@ function getTask(id) {
   return query('GET', `tasks?id=eq.${id}&select=*`)
 }
 
+async function findTaskByPrefix(prefix) {
+  const data = await query('GET', `tasks?id=like.${prefix}%&select=id`)
+  return Array.isArray(data) && data.length > 0 ? data[0].id : null
+}
+
 function createTask(data) {
   return query('POST', 'tasks', data)
 }
@@ -37,4 +42,4 @@ function deleteTask(id) {
   return query('DELETE', `tasks?id=eq.${id}`)
 }
 
-module.exports = { listTasks, getTask, createTask, updateTask, deleteTask }
+module.exports = { listTasks, getTask, findTaskByPrefix, createTask, updateTask, deleteTask }
