@@ -18,11 +18,7 @@ exports.handler = async (event) => {
     const text = msg.text.trim()
     const firstName = msg.from?.first_name || 'Usuário'
 
-    const allowed = process.env.TELEGRAM_CHAT_ID
-    if (allowed && String(chatId) !== String(allowed)) {
-      await sendMessage(chatId, '⚠️ Este bot é privado e não autoriza seu uso.')
-      return { statusCode: 200, body: 'OK' }
-    }
+    // Verificação de chat ID removida temporariamente para testes
 
     if (text.startsWith('/start')) {
       return await cmdStart(chatId, firstName)
