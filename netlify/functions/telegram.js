@@ -19,32 +19,24 @@ exports.handler = async (event) => {
     const firstName = msg.from?.first_name || 'Usuário'
 
     if (text.startsWith('/start')) {
-      return await cmdStart(chatId, firstName)
-    }
-    if (text.startsWith('/help')) {
-      return await cmdHelp(chatId)
-    }
-    if (text.startsWith('/stats')) {
-      return await cmdStats(chatId)
-    }
-    if (text.startsWith('/add ')) {
-      return await cmdAdd(chatId, text.slice(5).trim())
-    }
-    if (/^\/(list|tasks)/.test(text)) {
-      return await cmdList(chatId)
-    }
-    if (/^\/(done|complete) /.test(text)) {
-      return await cmdDone(chatId, text.split(' ').slice(1).join(' '))
-    }
-    if (/^\/(delete|remove) /.test(text)) {
-      return await cmdDelete(chatId, text.split(' ').slice(1).join(' '))
-    }
-    if (text === '/add') {
+      await cmdStart(chatId, firstName)
+    } else if (text.startsWith('/help')) {
+      await cmdHelp(chatId)
+    } else if (text.startsWith('/stats')) {
+      await cmdStats(chatId)
+    } else if (text.startsWith('/add ')) {
+      await cmdAdd(chatId, text.slice(5).trim())
+    } else if (/^\/(list|tasks)/.test(text)) {
+      await cmdList(chatId)
+    } else if (/^\/(done|complete) /.test(text)) {
+      await cmdDone(chatId, text.split(' ').slice(1).join(' '))
+    } else if (/^\/(delete|remove) /.test(text)) {
+      await cmdDelete(chatId, text.split(' ').slice(1).join(' '))
+    } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nExemplo:\n/add Estudar JS | Revisar closures | diaria | alta')
-      return { statusCode: 200, body: 'OK' }
+    } else {
+      await sendMessage(chatId, '❓ Comando não reconhecido. Use /help para ver os comandos disponíveis.')
     }
-
-    await sendMessage(chatId, '❓ Comando não reconhecido. Use /help para ver os comandos disponíveis.')
     return { statusCode: 200, body: 'OK' }
   } catch (error) {
     console.error('Telegram webhook error:', error)
