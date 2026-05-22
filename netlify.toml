@@ -1,6 +1,19 @@
 [build]
   publish = "."
 
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/tasks"
+  status = 200
+
+[[redirects]]
+  from = "/telegram-webhook"
+  to = "/.netlify/functions/telegram"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

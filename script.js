@@ -1,5 +1,6 @@
 const STORAGE_KEY = 'mentor_digital_tarefas';
 const CONFIG_KEY = 'mentor_digital_config';
+const API_BASE = '/api';
 
 let tarefas = [];
 let filtroAtual = 'todas';
@@ -29,61 +30,120 @@ const elements = {
   fontOptions: document.getElementById('fontOptions'),
 };
 
-function carregarTarefas() {
+const api = {
+  async request(method, path, body) {
+    try {
+      const opts = { method, headers: { 'Content-Type': 'application/json' } }
+      if (body) opts.body = JSON.stringify(body)
+      const res = await fetch(API_BASE + path, opts)
+      if (!res.ok) throw new Error('API error: ' + res.status)
+      return method === 'DELETE' ? true : await res.json()
+    } catch (e) {
+      throw e
+    }
+  },
+  list() { return this.request('GET', '/tasks') },
+  create(data) { return this.request('POST', '/tasks', { ...data, source: 'web' }) },
+  update(id, data) { return this.request('PATCH', '/tasks/' + id, data) },
+  remove(id) { return this.request('DELETE', '/tasks/' + id) },
+}
+
+function salvarCache() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas))
+}
+
+function carregarCache() {
   try {
-    const dados = localStorage.getItem(STORAGE_KEY);
-    tarefas = dados ? JSON.parse(dados) : [];
+    const dados = localStorage.getItem(STORAGE_KEY)
+    tarefas = dados ? JSON.parse(dados) : []
   } catch {
-    tarefas = [];
+    tarefas = []
   }
 }
 
-function salvarTarefas() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas));
+async function carregarTarefas() {
+  try {
+    const dados = await api.list()
+    tarefas = dados || []
+    salvarCache()
+  } catch {
+    carregarCache()
+  }
+  renderizar()
 }
 
-function gerarId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+async function adicionarTarefa(titulo, descricao, categoria, prioridade) {
+  try {
+    const task = await api.create({ titulo, descricao, categoria, prioridade })
+    tarefas.unshift({
+      id: task.id,
+      titulo: task.titulo,
+      descricao: task.descricao || '',
+      categoria: task.categoria,
+      prioridade: task.prioridade,
+      concluida: task.concluida,
+      criadaEm: task.criadaEm,
+    })
+  } catch {
+    tarefas.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      titulo,
+      descricao,
+      categoria,
+      prioridade,
+      concluida: false,
+      criadaEm: new Date().toISOString(),
+    })
+  }
+  salvarCache()
+  renderizar()
 }
 
-function adicionarTarefa(titulo, descricao, categoria, prioridade) {
-  tarefas.push({
-    id: gerarId(),
-    titulo,
-    descricao,
-    categoria,
-    prioridade,
-    concluida: false,
-    criadaEm: new Date().toISOString(),
-  });
-  salvarTarefas();
-  renderizar();
+async function editarTarefa(id, titulo, descricao, categoria, prioridade) {
+  const idx = tarefas.findIndex(t => t.id === id)
+  if (idx === -1) return
+  try {
+    const task = await api.update(id, { titulo, descricao, categoria, prioridade })
+    tarefas[idx] = {
+      id: task.id,
+      titulo: task.titulo,
+      descricao: task.descricao || '',
+      categoria: task.categoria,
+      prioridade: task.prioridade,
+      concluida: task.concluida,
+      criadaEm: task.criadaEm,
+    }
+  } catch {
+    tarefas[idx].titulo = titulo
+    tarefas[idx].descricao = descricao
+    tarefas[idx].categoria = categoria
+    tarefas[idx].prioridade = prioridade
+  }
+  salvarCache()
+  renderizar()
 }
 
-function editarTarefa(id, titulo, descricao, categoria, prioridade) {
-  const tarefa = tarefas.find(t => t.id === id);
-  if (!tarefa) return;
-  tarefa.titulo = titulo;
-  tarefa.descricao = descricao;
-  tarefa.categoria = categoria;
-  tarefa.prioridade = prioridade;
-  salvarTarefas();
-  renderizar();
+async function toggleConcluida(id) {
+  const tarefa = tarefas.find(t => t.id === id)
+  if (!tarefa) return
+  tarefa.concluida = !tarefa.concluida
+  try {
+    await api.update(id, { concluida: tarefa.concluida })
+  } catch {
+  }
+  salvarCache()
+  renderizar()
 }
 
-function toggleConcluida(id) {
-  const tarefa = tarefas.find(t => t.id === id);
-  if (!tarefa) return;
-  tarefa.concluida = !tarefa.concluida;
-  salvarTarefas();
-  renderizar();
-}
-
-function removerTarefa(id) {
-  if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return;
-  tarefas = tarefas.filter(t => t.id !== id);
-  salvarTarefas();
-  renderizar();
+async function removerTarefa(id) {
+  if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return
+  try {
+    await api.remove(id)
+  } catch {
+  }
+  tarefas = tarefas.filter(t => t.id !== id)
+  salvarCache()
+  renderizar()
 }
 
 function tarefasFiltradas() {
@@ -288,4 +348,3 @@ elements.searchInput.addEventListener('input', (e) => {
 
 carregarTarefas();
 aplicarConfig(config);
-renderizar();
