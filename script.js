@@ -147,7 +147,7 @@ async function adicionarTarefa(titulo, descricao, categoria, prioridade) {
     })
   }
   salvarCache()
-  notificarTelegram('adicionada', tarefas[0])
+  notificarTelegram('adicionada', tarefas.find(t => t.titulo === titulo && t.categoria === categoria) || tarefas[tarefas.length - 1])
   renderizar()
 }
 
