@@ -30,6 +30,8 @@ exports.handler = async (event) => {
       await cmdList(chatId)
     } else if (/^\/(done|complete) /.test(text)) {
       await cmdDone(chatId, text.split(' ').slice(1).join(' '))
+    } else if (text === '/done' || text === '/complete') {
+      await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
     } else if (/^\/(delete|remove) /.test(text)) {
       await cmdDelete(chatId, text.split(' ').slice(1).join(' '))
     } else if (text === '/add') {
@@ -109,7 +111,8 @@ async function cmdStats(chatId) {
       bar,
     ].join('\n')
     await sendMessage(chatId, text)
-  } catch {
+  } catch (err) {
+    console.error('cmdStats error:', err)
     await sendMessage(chatId, '❌ Erro ao consultar tarefas.')
   }
 }
@@ -147,6 +150,7 @@ async function cmdAdd(chatId, args) {
 
     await sendMessage(chatId, text)
   } catch (err) {
+    console.error('cmdAdd error:', err)
     await sendMessage(chatId, '❌ Erro ao criar tarefa.')
   }
 }
@@ -177,7 +181,8 @@ async function cmdList(chatId) {
     }
 
     await sendMessage(chatId, text)
-  } catch {
+  } catch (err) {
+    console.error('cmdList error:', err)
     await sendMessage(chatId, '❌ Erro ao listar tarefas.')
   }
 }
@@ -188,7 +193,8 @@ async function cmdDone(chatId, id) {
     const task = Array.isArray(result) ? result[0] : result
     if (!task) throw new Error('Not found')
     await sendMessage(chatId, `✅ <b>Tarefa concluída!</b>\n\n${esc(task.titulo)}`)
-  } catch {
+  } catch (err) {
+    console.error('cmdDone error:', err)
     await sendMessage(chatId, `❌ Tarefa não encontrada. Use /list para ver os IDs.`)
   }
 }
@@ -200,7 +206,8 @@ async function cmdDelete(chatId, id) {
     if (!task) throw new Error('Not found')
     await deleteTask(id)
     await sendMessage(chatId, `🗑️ <b>Tarefa excluída:</b> ${esc(task.titulo)}`)
-  } catch {
+  } catch (err) {
+    console.error('cmdDelete error:', err)
     await sendMessage(chatId, `❌ Tarefa não encontrada. Use /list para ver os IDs.`)
   }
 }
@@ -212,7 +219,8 @@ function formatTask(t) {
   const cat = catLabels[t.categoria] || '📌'
   const pri = priLabels[t.prioridade] || '⚪'
   const title = t.titulo.length > 40 ? t.titulo.slice(0, 40) + '…' : t.titulo
-  return `${status} <code>${t.id.slice(0, 8)}</code> ${cat} ${pri} <b>${esc(title)}</b>`
+  const displayId = t.id.slice(0, 8)
+  return `${status} <code>${displayId}</code> ${cat} ${pri} <b>${esc(title)}</b>`
 }
 
 function gerarBarra(percent) {

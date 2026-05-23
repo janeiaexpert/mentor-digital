@@ -5,6 +5,7 @@ const headers = {
   apikey: supabaseKey,
   Authorization: `Bearer ${supabaseKey}`,
   'Content-Type': 'application/json',
+  Prefer: 'return=representation',
 }
 
 async function query(method, path, body) {
@@ -12,6 +13,7 @@ async function query(method, path, body) {
   const opts = { method, headers }
   if (body) opts.body = JSON.stringify(body)
   const res = await fetch(url, opts)
+  if (res.status === 204) return null
   const text = await res.text()
   if (!res.ok) throw new Error(`Supabase ${res.status}: ${text}`)
   return text ? JSON.parse(text) : null
@@ -22,7 +24,8 @@ function listTasks() {
 }
 
 function getTask(id) {
-  return query('GET', `tasks?id=eq.${id}&select=*`)
+  // Aceita UUID completo ou prefixo de 8 caracteres
+  return query('GET', `tasks?id=like.${id}*&id:cast=text&select=*`)
 }
 
 function createTask(data) {
@@ -30,11 +33,11 @@ function createTask(data) {
 }
 
 function updateTask(id, data) {
-  return query('PATCH', `tasks?id=eq.${id}`, data)
+  return query('PATCH', `tasks?id=like.${id}*&id:cast=text`, data)
 }
 
 function deleteTask(id) {
-  return query('DELETE', `tasks?id=eq.${id}`)
+  return query('DELETE', `tasks?id=like.${id}*&id:cast=text`)
 }
 
 module.exports = { listTasks, getTask, createTask, updateTask, deleteTask }
