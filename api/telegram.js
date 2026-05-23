@@ -16,7 +16,15 @@ module.exports = async (req, res) => {
   }
 
   try {
-    const update = req.body
+    const body = req.body
+
+    // Envio manual vindo do site (script.js envia { chatId, message: "texto" })
+    if (body && body.chatId && typeof body.message === 'string') {
+      await sendMessage(body.chatId, body.message)
+      return res.json({ ok: true })
+    }
+
+    const update = body
     const msg = update.message
 
     if (!msg?.text) {
