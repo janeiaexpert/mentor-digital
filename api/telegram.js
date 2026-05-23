@@ -238,8 +238,9 @@ async function cmdDelete(chatId, id) {
     return
   }
   try {
+    let task = null
     let res = await getTask(id)
-    let task = Array.isArray(res) ? res[0] : res
+    task = Array.isArray(res) ? res[0] : res
     if (!task) {
       const todas = await listTasks()
       task = todas.find(t => t.titulo.toLowerCase().includes(id.toLowerCase()))
