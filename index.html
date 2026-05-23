@@ -141,6 +141,14 @@
     <section class="task-list" id="taskList">
       <p class="empty-msg">Nenhuma tarefa encontrada. Crie sua primeira tarefa acima!</p>
     </section>
+
+    <section class="cmd-bar card">
+      <div class="cmd-input-wrap">
+        <input type="text" id="cmdInput" placeholder="Digite / para comandos..." autocomplete="off">
+        <button class="btn btn-primary cmd-send" id="cmdSend">&#10148;</button>
+      </div>
+      <div class="cmd-suggestions" id="cmdSuggestions"></div>
+    </section>
   </main>
 
   <div class="modal-overlay" id="editModal">

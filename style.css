@@ -675,3 +675,129 @@ header {
 .hidden {
   display: none !important;
 }
+
+/* Command bar */
+.cmd-bar {
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.cmd-input-wrap {
+  display: flex;
+  gap: 8px;
+}
+
+.cmd-input-wrap input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.2s;
+}
+
+.cmd-input-wrap input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.cmd-send {
+  padding: 10px 18px;
+  font-size: 16px;
+}
+
+.cmd-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 16px;
+  right: 16px;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: none;
+  z-index: 100;
+  box-shadow: var(--shadow);
+}
+
+.cmd-suggestions.show {
+  display: block;
+}
+
+.cmd-suggestion-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.1s;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.cmd-suggestion-item:hover,
+.cmd-suggestion-item.active {
+  background: var(--bg);
+}
+
+.cmd-suggestion-item .cmd-key {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.cmd-suggestion-item .cmd-desc {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.cmd-feedback {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  display: none;
+}
+
+.cmd-feedback.show {
+  display: block;
+}
+
+.cmd-feedback.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.cmd-feedback.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.cmd-feedback.info {
+  background: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+body.theme-personalizado .cmd-feedback.success {
+  background: #1e3a1e;
+  color: #8bc34a;
+  border-color: #2e5e2e;
+}
+
+body.theme-personalizado .cmd-feedback.error {
+  background: #3a1e1e;
+  color: #ef9a9a;
+  border-color: #5e2e2e;
+}
+
+body.theme-personalizado .cmd-feedback.info {
+  background: #1e2e3a;
+  color: #81d4fa;
+  border-color: #2e4e5e;
+}

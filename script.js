@@ -439,3 +439,138 @@ elements.searchInput.addEventListener('input', (e) => {
 
 carregarTarefas();
 aplicarConfig(config);
+
+// ─── Command bar ────────────────────────────────────────────
+const COMMANDS = [
+  { cmd: '/add', desc: 'Título | Descrição | categoria | prioridade', usage: '/add Estudar | Revisar | diaria | alta' },
+  { cmd: '/list', desc: 'Listar todas as tarefas' },
+  { cmd: '/tasks', desc: 'Listar todas as tarefas' },
+  { cmd: '/done', desc: '<id ou título> — Concluir tarefa' },
+  { cmd: '/delete', desc: '<id ou título> — Excluir tarefa' },
+  { cmd: '/stats', desc: 'Ver estatísticas do progresso' },
+  { cmd: '/help', desc: 'Mostrar esta ajuda' },
+]
+
+const cmdInput = document.getElementById('cmdInput')
+const cmdSend = document.getElementById('cmdSend')
+const cmdSuggestions = document.getElementById('cmdSuggestions')
+let cmdFeedback = null
+
+if (cmdInput) {
+  cmdFeedback = document.createElement('div')
+  cmdFeedback.className = 'cmd-feedback'
+  cmdInput.closest('.cmd-bar').appendChild(cmdFeedback)
+
+  cmdInput.addEventListener('input', () => {
+    const val = cmdInput.value
+    if (val.startsWith('/')) {
+      const term = val.toLowerCase()
+      const matches = COMMANDS.filter(c => c.cmd.startsWith(term))
+      renderSuggestions(matches, val)
+    } else {
+      cmdSuggestions.classList.remove('show')
+    }
+  })
+
+  cmdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      executeCommand(cmdInput.value.trim())
+    }
+    if (e.key === 'Escape') cmdSuggestions.classList.remove('show')
+  })
+
+  cmdSend.addEventListener('click', () => executeCommand(cmdInput.value.trim()))
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.cmd-bar')) cmdSuggestions.classList.remove('show')
+  })
+}
+
+function renderSuggestions(matches, current) {
+  cmdSuggestions.innerHTML = ''
+  if (matches.length === 0 || matches.every(m => m.cmd === current)) {
+    cmdSuggestions.classList.remove('show')
+    return
+  }
+  matches.forEach(m => {
+    const div = document.createElement('div')
+    div.className = 'cmd-suggestion-item'
+    div.innerHTML = `<span class="cmd-key">${m.cmd}</span> <span class="cmd-desc">${m.desc}</span>`
+    div.addEventListener('click', () => {
+      cmdInput.value = m.cmd + ' '
+      cmdInput.focus()
+      cmdSuggestions.classList.remove('show')
+    })
+    cmdSuggestions.appendChild(div)
+  })
+  cmdSuggestions.classList.add('show')
+}
+
+function showFeedback(msg, type = 'info') {
+  cmdFeedback.textContent = msg
+  cmdFeedback.className = 'cmd-feedback show ' + type
+  setTimeout(() => cmdFeedback.classList.remove('show'), 4000)
+}
+
+async function executeCommand(text) {
+  cmdSuggestions.classList.remove('show')
+  cmdFeedback.classList.remove('show')
+
+  if (!text.startsWith('/')) return
+
+  if (/^\/(list|tasks)$/i.test(text)) {
+    showFeedback(`📋 ${tarefas.length} tarefas (${tarefas.filter(t => !t.concluida).length} pendentes)`, 'info')
+    return
+  }
+
+  if (/^\/help$/i.test(text)) {
+    const lines = COMMANDS.map(c => `${c.cmd} — ${c.desc}`)
+    showFeedback(lines.join('\n'), 'info')
+    return
+  }
+
+  if (/^\/stats$/i.test(text)) {
+    const total = tarefas.length
+    const concluidas = tarefas.filter(t => t.concluida).length
+    const pendentes = total - concluidas
+    const prog = total > 0 ? Math.round((concluidas / total) * 100) : 0
+    showFeedback(`📊 Total: ${total} | Pendentes: ${pendentes} | Concluídas: ${concluidas} | Progresso: ${prog}%`, 'info')
+    return
+  }
+
+  const addMatch = text.match(/^\/add\s+(.+?)(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?$/i)
+  if (addMatch) {
+    const titulo = addMatch[1]?.trim()
+    if (!titulo) { showFeedback('❌ Informe um título', 'error'); return }
+    const desc = addMatch[2]?.trim() || ''
+    const cat = ['diaria', 'semanal', 'mensal'].includes(addMatch[3]?.trim()) ? addMatch[3].trim() : 'diaria'
+    const pri = ['alta', 'media', 'baixa'].includes(addMatch[4]?.trim()) ? addMatch[4].trim() : 'media'
+    await adicionarTarefa(titulo, desc, cat, pri)
+    showFeedback(`✅ Tarefa "${titulo}" criada!`, 'success')
+    return
+  }
+
+  const doneMatch = text.match(/^\/done\s+(.+)/i)
+  if (doneMatch) {
+    const term = doneMatch[1].trim()
+    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()))
+    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return }
+    await toggleConcluida(t.id)
+    showFeedback(`✅ "${t.titulo}" ${t.concluida ? 'concluída' : 'reativada'}!`, 'success')
+    return
+  }
+
+  const delMatch = text.match(/^\/(?:delete|remove|excluir|exclua)\s+(.+)/i)
+  if (delMatch) {
+    const term = delMatch[1].trim()
+    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()))
+    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return }
+    if (!confirm(`Excluir "${t.titulo}"?`)) return
+    await removerTarefa(t.id)
+    showFeedback(`🗑️ "${t.titulo}" excluída!`, 'success')
+    return
+  }
+
+  showFeedback('❓ Comando não reconhecido. Use /help', 'error')
+}
