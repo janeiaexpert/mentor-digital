@@ -1,6 +1,22 @@
 const { listTasks, createTask, getTask, updateTask, deleteTask } = require('./lib/supabase')
 const { sendMessage } = require('./lib/telegram')
 
+const GROQ_API = 'https://api.groq.com/openai/v1/chat/completions'
+const GROQ_KEY = process.env.GROQ_API_KEY
+const GROQ_MODEL = process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
+
+async function askGroq(messages) {
+  if (!GROQ_KEY) return null
+  const res = await fetch(GROQ_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${GROQ_KEY}` },
+    body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: 0.7, max_tokens: 1024 }),
+  })
+  if (!res.ok) { const e = await res.text(); throw new Error(`Groq ${res.status}: ${e}`) }
+  const data = await res.json()
+  return data.choices?.[0]?.message?.content || '(sem resposta)'
+}
+
 function esc(text) {
   return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -55,6 +71,10 @@ module.exports = async (req, res) => {
       await cmdDelete(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
     } else if (/^\/(delete|remove|excluir|exclua)$/i.test(text)) {
       await sendMessage(chatId, '❌ Use: /delete <id ou título>\n\nEx: /delete abc123\n     /delete "estudar top"\n\nUse /list para ver as tarefas.')
+    } else if (/^\/ask\s+/i.test(text)) {
+      await cmdAsk(chatId, text.replace(/^\/ask\s+/i, '').trim())
+    } else if (/^\/ask$/i.test(text)) {
+      await sendMessage(chatId, '❌ Use: /ask <pergunta>\n\nEx: /ask Que tarefas devo priorizar hoje?')
     } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nEx: /add Estudar JS | Revisar closures | diaria | alta')
     } else {
@@ -110,7 +130,11 @@ async function cmdHelp(chatId) {
     '   Excluir (por ID ou nome)',
     '   <i>Aliases: /excluir, /exclua</i>',
     '',
-    '📊 <code>/stats</code>',
+    '🤖 <code>/ask &lt;pergunta&gt;</code>',
+     '   Pergunte ao assistente IA (Groq)',
+     '   Ex: <code>/ask Que tarefas devo fazer hoje?</code>',
+     '',
+     '📊 <code>/stats</code>',
      '   Ver estatísticas do progresso',
      '',
      '<i>Mentor Digital v3</i>',
@@ -245,6 +269,24 @@ async function cmdDelete(chatId, id) {
   } catch (err) {
     console.error('cmdDelete error:', err)
     await sendMessage(chatId, '❌ Tarefa não encontrada. Use /list para ver os IDs.')
+  }
+}
+
+async function cmdAsk(chatId, pergunta) {
+  if (!GROQ_KEY) {
+    await sendMessage(chatId, '⚠️ Agente Groq não configurado. Peça ao administrador para definir GROQ_API_KEY.')
+    return
+  }
+  await sendMessage(chatId, '🤔 Pensando...')
+  try {
+    const reply = await askGroq([
+      { role: 'system', content: 'Você é o assistente Mentor Digital, especialista em produtividade e organização de tarefas. Responda de forma objetiva e curta em português.' },
+      { role: 'user', content: pergunta },
+    ])
+    await sendMessage(chatId, reply)
+  } catch (err) {
+    console.error('cmdAsk error:', err)
+    await sendMessage(chatId, '❌ Erro ao consultar o agente.')
   }
 }
 

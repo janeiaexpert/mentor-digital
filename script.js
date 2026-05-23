@@ -262,6 +262,7 @@ const COMMANDS = [
   { cmd: '/done', desc: '<id ou título> — Concluir' },
   { cmd: '/delete', desc: '<id ou título> — Excluir' },
   { cmd: '/excluir', desc: '<id ou título> — Excluir' },
+  { cmd: '/ask', desc: '<pergunta> — Assistente IA' },
   { cmd: '/stats', desc: 'Ver estatísticas' },
   { cmd: '/help', desc: 'Mostrar ajuda' },
 ];
@@ -355,6 +356,18 @@ async function executeCommand(text) {
     if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return; }
     await removerTarefa(t.id);
     showFeedback(`🗑️ "${t.titulo}" excluída!`, 'success');
+    return;
+  }
+
+  const askMatch = text.match(/^\/ask\s+(.+)/i);
+  if (askMatch) {
+    const pergunta = askMatch[1].trim();
+    showFeedback('🤔 Pensando...', 'info');
+    try {
+      const res = await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: pergunta }) });
+      const data = await res.json();
+      showFeedback(data.reply || 'Sem resposta', 'info');
+    } catch { showFeedback('❌ Erro ao consultar agente', 'error'); }
     return;
   }
 
