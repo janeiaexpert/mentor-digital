@@ -29,11 +29,11 @@ exports.handler = async (event) => {
     } else if (/^\/(list|tasks)/.test(text)) {
       await cmdList(chatId)
     } else if (/^\/(done|complete) /.test(text)) {
-      await cmdDone(chatId, text.split(' ').slice(1).join(' '))
+      await cmdDone(chatId, cleanId(text.split(' ').slice(1).join(' ')))
     } else if (text === '/done' || text === '/complete') {
       await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
     } else if (/^\/(delete|remove) /.test(text)) {
-      await cmdDelete(chatId, text.split(' ').slice(1).join(' '))
+      await cmdDelete(chatId, cleanId(text.split(' ').slice(1).join(' ')))
     } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nExemplo:\n/add Estudar JS | Revisar closures | diaria | alta')
     } else {
@@ -229,6 +229,10 @@ function gerarBarra(percent) {
   const filled = Math.round(percent / 10)
   const empty = 10 - filled
   return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percent}%`
+}
+
+function cleanId(raw) {
+  return String(raw).replace(/^[\sID:]*/, '').trim().split(/\s+/)[0]
 }
 
 function esc(text) {
