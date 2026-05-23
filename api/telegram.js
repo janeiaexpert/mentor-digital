@@ -45,12 +45,12 @@ module.exports = async (req, res) => {
       await cmdAdd(chatId, text.slice(5).trim())
     } else if (/^\/(list|tasks)/.test(text)) {
       await cmdList(chatId)
-    } else if (/^\/(done|complete) /.test(text)) {
-      await cmdDone(chatId, cleanId(text.split(' ').slice(1).join(' ')))
+    } else if (/^\/(done|complete)\s+\S/.test(text)) {
+      await cmdDone(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
     } else if (text === '/done' || text === '/complete') {
       await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
-    } else if (/^\/(delete|remove) /.test(text)) {
-      await cmdDelete(chatId, cleanId(text.split(' ').slice(1).join(' ')))
+    } else if (/^\/(delete|remove)\s+\S/.test(text)) {
+      await cmdDelete(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
     } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nExemplo:\n/add Estudar JS | Revisar closures | diaria | alta')
     } else {
@@ -208,6 +208,10 @@ async function cmdList(chatId) {
 }
 
 async function cmdDone(chatId, id) {
+  if (!id) {
+    await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
+    return
+  }
   try {
     const result = await updateTask(id, { concluida: true, concluida_em: new Date().toISOString() })
     const task = Array.isArray(result) ? result[0] : result
@@ -220,6 +224,10 @@ async function cmdDone(chatId, id) {
 }
 
 async function cmdDelete(chatId, id) {
+  if (!id) {
+    await sendMessage(chatId, '❌ Use: /delete <id>\n\nExemplo: /delete abc123\n\nUse /list para ver os IDs das tarefas.')
+    return
+  }
   try {
     const result = await getTask(id)
     const task = Array.isArray(result) ? result[0] : result
@@ -250,6 +258,7 @@ function gerarBarra(percent) {
 }
 
 function cleanId(raw) {
+  if (!raw) return ''
   return String(raw).replace(/^[\sID:]*/, '').trim().split(/\s+/)[0]
 }
 
