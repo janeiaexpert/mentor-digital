@@ -58,7 +58,7 @@ module.exports = async (req, res) => {
     } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nEx: /add Estudar JS | Revisar closures | diaria | alta')
     } else {
-      await sendMessage(chatId, '❓ Comando não reconhecido. Use /help para ver os comandos disponíveis.')
+      await sendMessage(chatId, '❓ Comando não reconhecido. Use /help para ver os comandos disponíveis. (v3)')
     }
 
     return res.status(200).end('OK')
@@ -111,8 +111,10 @@ async function cmdHelp(chatId) {
     '   <i>Aliases: /excluir, /exclua</i>',
     '',
     '📊 <code>/stats</code>',
-    '   Ver estatísticas do progresso',
-  ].join('\n')
+     '   Ver estatísticas do progresso',
+     '',
+     '<i>Mentor Digital v3</i>',
+   ].join('\n')
   await sendMessage(chatId, text)
 }
 
