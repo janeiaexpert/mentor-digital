@@ -75,7 +75,9 @@ async function cmdStart(chatId, name) {
     '• ❌ <b>Excluir</b> — /delete id',
     '• 📊 <b>Ver estatísticas</b> — /stats',
     '',
-    'Use /help para ajuda completa.',
+    `📌 Seu Chat ID: <code>${chatId}</code>`,
+    '',
+    '💡 Use este Chat ID no site Mentor Digital para receber notificações.',
   ].join('\n')
   await sendMessage(chatId, text)
 }
