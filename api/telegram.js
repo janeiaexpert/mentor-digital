@@ -45,12 +45,14 @@ module.exports = async (req, res) => {
       await cmdAdd(chatId, text.slice(5).trim())
     } else if (/^\/(list|tasks)/.test(text)) {
       await cmdList(chatId)
-    } else if (/^\/(done|complete)\s+\S/.test(text)) {
+    } else if (/^\/(done|complete)\s+/.test(text)) {
       await cmdDone(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
-    } else if (text === '/done' || text === '/complete') {
+    } else if (/^\/(done|complete)$/.test(text)) {
       await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
-    } else if (/^\/(delete|remove)\s+\S/.test(text)) {
+    } else if (/^\/(delete|remove|excluir|exclua)\s+/.test(text)) {
       await cmdDelete(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
+    } else if (/^\/(delete|remove|excluir|exclua)$/.test(text)) {
+      await sendMessage(chatId, '❌ Use: /delete <id>\n\nExemplo: /delete abc123\n\nUse /list para ver os IDs das tarefas.')
     } else if (text === '/add') {
       await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nExemplo:\n/add Estudar JS | Revisar closures | diaria | alta')
     } else {
@@ -97,13 +99,14 @@ async function cmdHelp(chatId) {
     '📋 <code>/list</code> ou <code>/tasks</code>',
     '   Listar todas as tarefas',
     '',
-    '✅ <code>/done &lt;id&gt;</code>',
-    '   Marcar tarefa como concluída',
-    '   Ex: <code>/done abc123</code>',
-    '',
-    '❌ <code>/delete &lt;id&gt;</code>',
-    '   Excluir uma tarefa',
-    '',
+    '✅ <code>/done &lt;id ou título&gt;</code>',
+     '   Marcar tarefa como concluída (por ID ou nome)',
+     '   Ex: <code>/done abc123</code>',
+     '',
+    '❌ <code>/delete &lt;id ou título&gt;</code>',
+     '   Excluir uma tarefa (por ID ou nome)',
+     '   <i>Aliases: /excluir, /exclua</i>',
+     '',
     '📊 <code>/stats</code>',
     '   Ver estatísticas do seu progresso',
     '',
