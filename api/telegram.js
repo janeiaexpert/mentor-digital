@@ -1,6 +1,15 @@
 const { listTasks, createTask, getTask, updateTask, deleteTask } = require('./lib/supabase')
 const { sendMessage } = require('./lib/telegram')
 
+function esc(text) {
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function cleanId(raw) {
+  if (!raw) return ''
+  return String(raw).replace(/^[\sID:]*/, '').trim().split(/\s+/)[0]
+}
+
 module.exports = async (req, res) => {
   if (req.method === 'GET') {
     const token = process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN
@@ -11,25 +20,18 @@ module.exports = async (req, res) => {
     return res.status(200).json(data)
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).end('Method not allowed')
-  }
+  if (req.method !== 'POST') return res.status(405).end()
 
   try {
     const body = req.body
 
-    // Envio manual vindo do site (script.js envia { chatId, message: "texto" })
     if (body && body.chatId && typeof body.message === 'string') {
       await sendMessage(body.chatId, body.message)
       return res.json({ ok: true })
     }
 
-    const update = body
-    const msg = update.message
-
-    if (!msg?.text) {
-      return res.status(200).end('OK')
-    }
+    const msg = body.message
+    if (!msg?.text) return res.status(200).end('OK')
 
     const chatId = msg.chat.id
     const text = msg.text.trim()
@@ -41,20 +43,20 @@ module.exports = async (req, res) => {
       await cmdHelp(chatId)
     } else if (text.startsWith('/stats')) {
       await cmdStats(chatId)
-    } else if (text.startsWith('/add ')) {
-      await cmdAdd(chatId, text.slice(5).trim())
-    } else if (/^\/(list|tasks)/.test(text)) {
+    } else if (/^\/add\s+/i.test(text)) {
+      await cmdAdd(chatId, text.replace(/^\/add\s+/i, '').trim())
+    } else if (/^\/(list|tasks)/i.test(text)) {
       await cmdList(chatId)
-    } else if (/^\/(done|complete)\s+/.test(text)) {
+    } else if (/^\/(done|complete)\s+/i.test(text)) {
       await cmdDone(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
-    } else if (/^\/(done|complete)$/.test(text)) {
-      await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
-    } else if (/^\/(delete|remove|excluir|exclua)\s+/.test(text)) {
+    } else if (/^\/(done|complete)$/i.test(text)) {
+      await sendMessage(chatId, '❌ Use: /done <id ou título>\n\nEx: /done abc123\n     /done Livro\n\nUse /list para ver as tarefas.')
+    } else if (/^\/(delete|remove|excluir|exclua)\s+/i.test(text)) {
       await cmdDelete(chatId, cleanId(text.split(/\s+/).slice(1).join(' ')))
-    } else if (/^\/(delete|remove|excluir|exclua)$/.test(text)) {
-      await sendMessage(chatId, '❌ Use: /delete <id>\n\nExemplo: /delete abc123\n\nUse /list para ver os IDs das tarefas.')
+    } else if (/^\/(delete|remove|excluir|exclua)$/i.test(text)) {
+      await sendMessage(chatId, '❌ Use: /delete <id ou título>\n\nEx: /delete abc123\n     /delete "estudar top"\n\nUse /list para ver as tarefas.')
     } else if (text === '/add') {
-      await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nExemplo:\n/add Estudar JS | Revisar closures | diaria | alta')
+      await sendMessage(chatId, 'Use: /add Título | Descrição | categoria | prioridade\n\nEx: /add Estudar JS | Revisar closures | diaria | alta')
     } else {
       await sendMessage(chatId, '❓ Comando não reconhecido. Use /help para ver os comandos disponíveis.')
     }
@@ -70,16 +72,17 @@ async function cmdStart(chatId, name) {
   const text = [
     `👋 Olá, <b>${esc(name)}</b>! Bem-vindo ao <b>Mentor Digital</b> 🎯`,
     '',
-    'Eu sou seu assistente de tarefas. Você pode:',
-    '• 📝 <b>Criar tarefas</b> — /add',
-    '• 📋 <b>Listar tarefas</b> — /list',
-    '• ✅ <b>Concluir</b> — /done id',
-    '• ❌ <b>Excluir</b> — /delete id',
-    '• 📊 <b>Ver estatísticas</b> — /stats',
+    'Eu sou seu assistente de tarefas.',
+    '• 📝 <b>Criar</b> — /add',
+    '• 📋 <b>Listar</b> — /list',
+    '• ✅ <b>Concluir</b> — /done (ID ou nome)',
+    '• ❌ <b>Excluir</b> — /delete (ID ou nome)',
+    '• 📊 <b>Estatísticas</b> — /stats',
     '',
     `📌 Seu Chat ID: <code>${chatId}</code>`,
     '',
     '💡 Use este Chat ID no site Mentor Digital para receber notificações.',
+    'Use /help para ajuda completa.',
   ].join('\n')
   await sendMessage(chatId, text)
 }
@@ -88,29 +91,27 @@ async function cmdHelp(chatId) {
   const text = [
     '📖 <b>Ajuda - Mentor Digital</b>',
     '',
-    '<b>Comandos disponíveis:</b>',
+    '<b>Comandos:</b>',
     '',
-    '📝 <code>/add Título | Descrição | categoria | prioridade</code>',
-    '   Criar nova tarefa',
-    '   <i>categoria: diaria, semanal, mensal</i>',
-    '   <i>prioridade: alta, media, baixa</i>',
-    '   Ex: <code>/add Estudar | Revisar capítulo 3 | diaria | alta</code>',
+    '📝 <code>/add Título | Desc | cat | pri</code>',
+    '   Criar tarefa',
+    '   <i>cat: diaria, semanal, mensal</i>',
+    '   <i>pri: alta, media, baixa</i>',
+    '   Ex: <code>/add Estudar | Revisar cap 3 | diaria | alta</code>',
     '',
     '📋 <code>/list</code> ou <code>/tasks</code>',
     '   Listar todas as tarefas',
     '',
     '✅ <code>/done &lt;id ou título&gt;</code>',
-     '   Marcar tarefa como concluída (por ID ou nome)',
-     '   Ex: <code>/done abc123</code>',
-     '',
-    '❌ <code>/delete &lt;id ou título&gt;</code>',
-     '   Excluir uma tarefa (por ID ou nome)',
-     '   <i>Aliases: /excluir, /exclua</i>',
-     '',
-    '📊 <code>/stats</code>',
-    '   Ver estatísticas do seu progresso',
+    '   Concluir (por ID ou nome)',
+    '   Ex: <code>/done abc123</code> ou <code>/done Livro</code>',
     '',
-    '💡 <b>Dica:</b> Use o site Mentor Digital para gerenciar suas tarefas com uma interface visual!',
+    '❌ <code>/delete &lt;id ou título&gt;</code>',
+    '   Excluir (por ID ou nome)',
+    '   <i>Aliases: /excluir, /exclua</i>',
+    '',
+    '📊 <code>/stats</code>',
+    '   Ver estatísticas do progresso',
   ].join('\n')
   await sendMessage(chatId, text)
 }
@@ -124,13 +125,11 @@ async function cmdStats(chatId) {
     const progresso = total > 0 ? Math.round((concluidas / total) * 100) : 0
     const bar = gerarBarra(progresso)
     const text = [
-      '📊 <b>Suas Estatísticas</b>',
-      '',
+      '📊 <b>Suas Estatísticas</b>', '',
       `📌 Total: <b>${total}</b>`,
       `⏳ Pendentes: <b>${pendentes}</b>`,
       `✅ Concluídas: <b>${concluidas}</b>`,
-      `📈 Progresso: <b>${progresso}%</b>`,
-      '',
+      `📈 Progresso: <b>${progresso}%</b>`, '',
       bar,
     ].join('\n')
     await sendMessage(chatId, text)
@@ -147,7 +146,6 @@ async function cmdAdd(chatId, args) {
     await sendMessage(chatId, '❌ Use: /add Título | Descrição | categoria | prioridade')
     return
   }
-
   try {
     const result = await createTask({
       titulo,
@@ -156,21 +154,15 @@ async function cmdAdd(chatId, args) {
       prioridade: ['alta', 'media', 'baixa'].includes(parts[3]) ? parts[3] : 'media',
     })
     const task = Array.isArray(result) ? result[0] : result
-
     const catLabels = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' }
     const priLabels = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
-
     const text = [
-      '✅ <b>Tarefa criada com sucesso!</b>',
-      '',
+      '✅ <b>Tarefa criada com sucesso!</b>', '',
       `<b>${esc(task.titulo)}</b>`,
-      task.descricao ? esc(task.descricao) : '',
-      '',
-      `${catLabels[task.categoria] || task.categoria} | ${priLabels[task.prioridade] || task.prioridade}`,
-      '',
+      task.descricao ? esc(task.descricao) : '', '',
+      `${catLabels[task.categoria] || task.categoria} | ${priLabels[task.prioridade] || task.prioridade}`, '',
       `ID: <code>${task.id}</code>`,
     ].filter(Boolean).join('\n')
-
     await sendMessage(chatId, text)
   } catch (err) {
     console.error('cmdAdd error:', err)
@@ -212,7 +204,7 @@ async function cmdList(chatId) {
 
 async function cmdDone(chatId, id) {
   if (!id) {
-    await sendMessage(chatId, '❌ Use: /done <id>\n\nExemplo: /done abc123\n\nUse /list para ver os IDs das tarefas.')
+    await sendMessage(chatId, '❌ Use: /done <id ou título>\n\nEx: /done abc123\n     /done Livro')
     return
   }
   try {
@@ -234,13 +226,12 @@ async function cmdDone(chatId, id) {
 
 async function cmdDelete(chatId, id) {
   if (!id) {
-    await sendMessage(chatId, '❌ Use: /delete <id>\n\nExemplo: /delete abc123\n\nUse /list para ver os IDs das tarefas.')
+    await sendMessage(chatId, '❌ Use: /delete <id ou título>\n\nEx: /delete abc123\n     /delete "estudar top"')
     return
   }
   try {
-    let task = null
     let res = await getTask(id)
-    task = Array.isArray(res) ? res[0] : res
+    let task = Array.isArray(res) ? res[0] : res
     if (!task) {
       const todas = await listTasks()
       task = todas.find(t => t.titulo.toLowerCase().includes(id.toLowerCase()))
@@ -262,21 +253,10 @@ function formatTask(t) {
   const cat = catLabels[t.categoria] || '📌'
   const pri = priLabels[t.prioridade] || '⚪'
   const title = t.titulo.length > 40 ? t.titulo.slice(0, 40) + '…' : t.titulo
-  const displayId = t.id.slice(0, 8)
-  return `${status} <code>${displayId}</code> ${cat} ${pri} <b>${esc(title)}</b>`
+  return `${status} <code>${t.id.slice(0, 8)}</code> ${cat} ${pri} <b>${esc(title)}</b>`
 }
 
 function gerarBarra(percent) {
   const filled = Math.round(percent / 10)
-  const empty = 10 - filled
-  return '█'.repeat(filled) + '░'.repeat(empty) + ` ${percent}%`
-}
-
-function cleanId(raw) {
-  if (!raw) return ''
-  return String(raw).replace(/^[\sID:]*/, '').trim().split(/\s+/)[0]
-}
-
-function esc(text) {
-  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return '█'.repeat(filled) + '░'.repeat(10 - filled) + ` ${percent}%`
 }

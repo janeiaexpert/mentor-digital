@@ -1,79 +1,58 @@
-const STORAGE_KEY = 'mentor_digital_tarefas';
-const CONFIG_KEY = 'mentor_digital_config';
-const TELEGRAM_KEY = 'mentor_digital_telegram';
 const API_BASE = '/api';
+const TELEGRAM_KEY = 'mentor_digital_telegram';
+const CONFIG_KEY = 'mentor_digital_config';
 
 let tarefas = [];
 let filtroAtual = 'todas';
 let termoBusca = '';
 
-const elements = {
-  taskForm: document.getElementById('taskForm'),
-  taskList: document.getElementById('taskList'),
-  editModal: document.getElementById('editModal'),
-  editForm: document.getElementById('editForm'),
-  editId: document.getElementById('editId'),
-  editTitle: document.getElementById('editTitle'),
-  editCategory: document.getElementById('editCategory'),
-  editPriority: document.getElementById('editPriority'),
-  editDesc: document.getElementById('editDesc'),
-  cancelEdit: document.getElementById('cancelEdit'),
-  searchInput: document.getElementById('searchInput'),
-  filterTabs: document.getElementById('filterTabs'),
-  statTotal: document.getElementById('statTotal'),
-  statPendente: document.getElementById('statPendente'),
-  statConcluida: document.getElementById('statConcluida'),
-  statProgresso: document.getElementById('statProgresso'),
-  btnCustomize: document.getElementById('btnCustomize'),
-  customizePanel: document.getElementById('customizePanel'),
-  closeCustomize: document.getElementById('closeCustomize'),
-  themeOptions: document.getElementById('themeOptions'),
-  fontOptions: document.getElementById('fontOptions'),
-  telegramChatId: document.getElementById('telegramChatId'),
-  btnTestTelegram: document.getElementById('btnTestTelegram'),
-  btnSaveTelegram: document.getElementById('btnSaveTelegram'),
-  telegramStatus: document.getElementById('telegramStatus'),
-  statusDot: document.querySelector('.status-dot'),
+const $ = id => document.getElementById(id);
+const el = {
+  taskForm: $('taskForm'), taskList: $('taskList'),
+  editModal: $('editModal'), editForm: $('editForm'),
+  editId: $('editId'), editTitle: $('editTitle'),
+  editCategory: $('editCategory'), editPriority: $('editPriority'),
+  editDesc: $('editDesc'), cancelEdit: $('cancelEdit'),
+  searchInput: $('searchInput'), filterTabs: $('filterTabs'),
+  statTotal: $('statTotal'), statPendente: $('statPendente'),
+  statConcluida: $('statConcluida'), statProgresso: $('statProgresso'),
+  cmdInput: $('cmdInput'), cmdSend: $('cmdSend'),
+  cmdSuggestions: $('cmdSuggestions'), cmdFeedback: $('cmdFeedback'),
+  telegramChatId: $('telegramChatId'),
+  btnTestTelegram: $('btnTestTelegram'), btnSaveTelegram: $('btnSaveTelegram'),
+  telegramStatus: $('telegramStatus'), statusDot: document.querySelector('.status-dot'),
+  btnCustomize: $('btnCustomize'), customizePanel: $('customizePanel'),
+  closeCustomize: $('closeCustomize'), themeOptions: $('themeOptions'), fontOptions: $('fontOptions'),
 };
 
 const api = {
   async request(method, path, body) {
-    try {
-      const opts = { method, headers: { 'Content-Type': 'application/json' } }
-      if (body) opts.body = JSON.stringify(body)
-      const res = await fetch(API_BASE + path, opts)
-      if (!res.ok) throw new Error('API error: ' + res.status)
-      return method === 'DELETE' ? true : await res.json()
-    } catch (e) {
-      throw e
-    }
+    const opts = { method, headers: { 'Content-Type': 'application/json' } };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(API_BASE + path, opts);
+    if (!res.ok) throw new Error('API error: ' + res.status);
+    return method === 'DELETE' ? true : await res.json();
   },
-  list() { return this.request('GET', '/tasks') },
-  create(data) { return this.request('POST', '/tasks', { ...data, source: 'web' }) },
-  update(id, data) { return this.request('PATCH', '/tasks?id=' + id, data) },
-  remove(id) { return this.request('DELETE', '/tasks?id=' + id) },
-}
+  list() { return this.request('GET', '/tasks'); },
+  create(data) { return this.request('POST', '/tasks', { ...data, source: 'web' }); },
+  update(id, data) { return this.request('PATCH', '/tasks?id=' + id, data); },
+  remove(id) { return this.request('DELETE', '/tasks?id=' + id); },
+};
 
 function carregarTelegram() {
-  try {
-    const dados = localStorage.getItem(TELEGRAM_KEY);
-    return dados ? JSON.parse(dados) : { chatId: '' };
-  } catch {
-    return { chatId: '' };
-  }
+  try { return JSON.parse(localStorage.getItem(TELEGRAM_KEY)) || { chatId: '' }; }
+  catch { return { chatId: '' }; }
 }
-
 function salvarTelegram(data) {
   localStorage.setItem(TELEGRAM_KEY, JSON.stringify(data));
   atualizarStatusTelegram();
 }
-
 function atualizarStatusTelegram() {
   const data = carregarTelegram();
   const conectado = !!data.chatId;
-  if (elements.statusDot) {
-    elements.statusDot.className = 'status-dot ' + (conectado ? 'online' : 'offline');
-    const label = document.querySelector('#telegramStatus span:last-child');
+  if (el.statusDot) {
+    el.statusDot.className = 'status-dot ' + (conectado ? 'online' : 'offline');
+    const label = el.telegramStatus?.querySelector('span:last-child');
     if (label) label.textContent = conectado ? 'Conectado' : 'Desconectado';
   }
 }
@@ -81,496 +60,303 @@ function atualizarStatusTelegram() {
 async function enviarTelegram(mensagem) {
   const data = carregarTelegram();
   if (!data.chatId) return;
-  try {
-    await fetch('/api/telegram', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chatId: data.chatId, message: mensagem }),
-    });
-  } catch {}
-}
-
-function notificarTelegram(tipo, tarefa) {
-  const icons = { adicionada: '➕', concluida: '✅', desfeita: '↩️', excluida: '🗑️' };
-  const icon = icons[tipo] || '📌';
-  const prioridade = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' };
-  const categoria = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' };
-  const texto = `${icon} <b>Tarefa ${tipo}</b>\n\n📌 ${tarefa.titulo}\n📂 ${categoria[tarefa.categoria]}\n🏷 ${prioridade[tarefa.prioridade]}${tarefa.descricao ? '\n📝 ' + tarefa.descricao : ''}`;
-  enviarTelegram(texto);
-}
-
-function salvarCache() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tarefas))
-}
-
-function carregarCache() {
-  try {
-    const dados = localStorage.getItem(STORAGE_KEY)
-    tarefas = dados ? JSON.parse(dados) : []
-  } catch {
-    tarefas = []
-  }
+  try { await fetch('/api/telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId: data.chatId, message: mensagem }) }); }
+  catch {}
 }
 
 async function carregarTarefas() {
-  try {
-    const dados = await api.list()
-    tarefas = dados || []
-    salvarCache()
-  } catch {
-    carregarCache()
-  }
-  renderizar()
+  try { tarefas = await api.list() || []; }
+  catch { tarefas = []; }
+  renderizar();
 }
 
 async function adicionarTarefa(titulo, descricao, categoria, prioridade) {
   try {
-    const task = await api.create({ titulo, descricao, categoria, prioridade })
-    tarefas.unshift({
-      id: task.id,
-      titulo: task.titulo,
-      descricao: task.descricao || '',
-      categoria: task.categoria,
-      prioridade: task.prioridade,
-      concluida: task.concluida,
-      criadaEm: task.criadaEm,
-    })
+    const task = await api.create({ titulo, descricao, categoria, prioridade });
+    tarefas.unshift({ id: task.id, titulo: task.titulo, descricao: task.descricao || '', categoria: task.categoria, prioridade: task.prioridade, concluida: task.concluida, criadaEm: task.criadaEm });
   } catch {
-    tarefas.push({
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      titulo,
-      descricao,
-      categoria,
-      prioridade,
-      concluida: false,
-      criadaEm: new Date().toISOString(),
-    })
+    tarefas.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), titulo, descricao, categoria, prioridade, concluida: false, criadaEm: new Date().toISOString() });
   }
-  salvarCache()
-  notificarTelegram('adicionada', tarefas.find(t => t.titulo === titulo && t.categoria === categoria) || tarefas[tarefas.length - 1])
-  renderizar()
+  renderizar();
 }
 
 async function editarTarefa(id, titulo, descricao, categoria, prioridade) {
-  const idx = tarefas.findIndex(t => t.id === id)
-  if (idx === -1) return
+  const idx = tarefas.findIndex(t => t.id === id);
+  if (idx === -1) return;
   try {
-    const task = await api.update(id, { titulo, descricao, categoria, prioridade })
-    tarefas[idx] = {
-      id: task.id,
-      titulo: task.titulo,
-      descricao: task.descricao || '',
-      categoria: task.categoria,
-      prioridade: task.prioridade,
-      concluida: task.concluida,
-      criadaEm: task.criadaEm,
-    }
+    const task = await api.update(id, { titulo, descricao, categoria, prioridade });
+    tarefas[idx] = { id: task.id, titulo: task.titulo, descricao: task.descricao || '', categoria: task.categoria, prioridade: task.prioridade, concluida: task.concluida, criadaEm: task.criadaEm };
   } catch {
-    tarefas[idx].titulo = titulo
-    tarefas[idx].descricao = descricao
-    tarefas[idx].categoria = categoria
-    tarefas[idx].prioridade = prioridade
+    Object.assign(tarefas[idx], { titulo, descricao, categoria, prioridade });
   }
-  salvarCache()
-  renderizar()
+  renderizar();
 }
 
 async function toggleConcluida(id) {
-  const tarefa = tarefas.find(t => t.id === id)
-  if (!tarefa) return
-  tarefa.concluida = !tarefa.concluida
-  try {
-    await api.update(id, { concluida: tarefa.concluida })
-  } catch {
-  }
-  salvarCache()
-  notificarTelegram(tarefa.concluida ? 'concluida' : 'desfeita', tarefa)
-  renderizar()
+  const tarefa = tarefas.find(t => t.id === id);
+  if (!tarefa) return;
+  tarefa.concluida = !tarefa.concluida;
+  try { await api.update(id, { concluida: tarefa.concluida }); } catch {}
+  renderizar();
 }
 
 async function removerTarefa(id) {
-  if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return
-  const removida = tarefas.find(t => t.id === id)
-  try {
-    await api.remove(id)
-  } catch {
-  }
-  tarefas = tarefas.filter(t => t.id !== id)
-  salvarCache()
-  if (removida) notificarTelegram('excluida', removida)
-  renderizar()
+  if (!confirm('Tem certeza que deseja excluir esta tarefa?')) return;
+  try { await api.remove(id); } catch {}
+  tarefas = tarefas.filter(t => t.id !== id);
+  renderizar();
 }
 
 function tarefasFiltradas() {
   let lista = tarefas;
-  if (filtroAtual !== 'todas') {
-    lista = lista.filter(t => t.categoria === filtroAtual);
-  }
+  if (filtroAtual !== 'todas') lista = lista.filter(t => t.categoria === filtroAtual);
   if (termoBusca.trim()) {
     const termo = termoBusca.trim().toLowerCase();
-    lista = lista.filter(t =>
-      t.titulo.toLowerCase().includes(termo) ||
-      (t.descricao && t.descricao.toLowerCase().includes(termo))
-    );
+    lista = lista.filter(t => t.titulo.toLowerCase().includes(termo) || (t.descricao && t.descricao.toLowerCase().includes(termo)));
   }
-  return lista.sort((a, b) => {
-    const pr = { alta: 0, media: 1, baixa: 2 };
-    if (a.concluida !== b.concluida) return a.concluida ? 1 : -1;
-    return pr[a.prioridade] - pr[b.prioridade];
-  });
+  const pr = { alta: 0, media: 1, baixa: 2 };
+  return lista.sort((a, b) => (a.concluida !== b.concluida ? (a.concluida ? 1 : -1) : pr[a.prioridade] - pr[b.prioridade]));
 }
 
 function atualizarDashboard() {
   const total = tarefas.length;
   const concluidas = tarefas.filter(t => t.concluida).length;
-  const pendentes = total - concluidas;
-  const progresso = total > 0 ? Math.round((concluidas / total) * 100) : 0;
-  elements.statTotal.textContent = total;
-  elements.statPendente.textContent = pendentes;
-  elements.statConcluida.textContent = concluidas;
-  elements.statProgresso.textContent = progresso + '%';
+  el.statTotal.textContent = total;
+  el.statPendente.textContent = total - concluidas;
+  el.statConcluida.textContent = concluidas;
+  el.statProgresso.textContent = total > 0 ? Math.round((concluidas / total) * 100) + '%' : '0%';
 }
+
+function esc(text) { const d = document.createElement('div'); d.textContent = text; return d.innerHTML; }
 
 function renderizar() {
   const lista = tarefasFiltradas();
   atualizarDashboard();
   if (lista.length === 0) {
-    elements.taskList.innerHTML = '<p class="empty-msg">Nenhuma tarefa encontrada. Crie sua primeira tarefa acima!</p>';
+    el.taskList.innerHTML = '<p class="empty-msg">Nenhuma tarefa encontrada.</p>';
     return;
   }
-  elements.taskList.innerHTML = lista.map(tarefa => {
-    const concluidaClass = tarefa.concluida ? 'concluida' : '';
-    const checkedClass = tarefa.concluida ? 'checked' : '';
-    const prioridadeClass = 'prioridade-' + tarefa.prioridade;
-    const catLabels = { diaria: 'Diária', semanal: 'Semanal', mensal: 'Mensal' };
-    const priLabels = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
-    return `
-      <div class="task-item ${concluidaClass} ${prioridadeClass}">
-        <div class="task-check ${checkedClass}" data-id="${tarefa.id}">${tarefa.concluida ? '&#10003;' : ''}</div>
-        <div class="task-content">
-          <div class="task-title">${escapeHtml(tarefa.titulo)}</div>
-          ${tarefa.descricao ? `<div class="task-desc">${escapeHtml(tarefa.descricao)}</div>` : ''}
-          <div class="task-meta">
-            <span class="tag tag-${tarefa.categoria}">${catLabels[tarefa.categoria]}</span>
-            <span class="tag tag-${tarefa.prioridade}">${priLabels[tarefa.prioridade]}</span>
-          </div>
-        </div>
-        <div class="task-actions">
-          <button class="btn-icon" data-edit="${tarefa.id}" title="Editar">&#9998;</button>
-          <button class="btn-icon" data-delete="${tarefa.id}" title="Excluir">&#10005;</button>
+  const catLabels = { diaria: 'Diária', semanal: 'Semanal', mensal: 'Mensal' };
+  const priLabels = { alta: 'Alta', media: 'Média', baixa: 'Baixa' };
+  el.taskList.innerHTML = lista.map(t => `
+    <div class="task-item ${t.concluida ? 'concluida' : ''} prioridade-${t.prioridade}">
+      <div class="task-check ${t.concluida ? 'checked' : ''}" data-id="${t.id}">${t.concluida ? '&#10003;' : ''}</div>
+      <div class="task-content">
+        <div class="task-title">${esc(t.titulo)}</div>
+        ${t.descricao ? `<div class="task-desc">${esc(t.descricao)}</div>` : ''}
+        <div class="task-meta">
+          <span class="tag tag-${t.categoria}">${catLabels[t.categoria]}</span>
+          <span class="tag tag-${t.prioridade}">${priLabels[t.prioridade]}</span>
         </div>
       </div>
-    `;
-  }).join('');
-  elements.taskList.querySelectorAll('.task-check').forEach(el => {
-    el.addEventListener('click', () => toggleConcluida(el.dataset.id));
-  });
-  elements.taskList.querySelectorAll('[data-edit]').forEach(el => {
-    el.addEventListener('click', () => abrirModal(el.dataset.edit));
-  });
-  elements.taskList.querySelectorAll('[data-delete]').forEach(el => {
-    el.addEventListener('click', () => removerTarefa(el.dataset.delete));
-  });
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
+      <div class="task-actions">
+        <button class="btn-icon" data-edit="${t.id}" title="Editar">&#9998;</button>
+        <button class="btn-icon" data-delete="${t.id}" title="Excluir">&#10005;</button>
+      </div>
+    </div>
+  `).join('');
+  el.taskList.querySelectorAll('.task-check').forEach(el2 => el2.addEventListener('click', () => toggleConcluida(el2.dataset.id)));
+  el.taskList.querySelectorAll('[data-edit]').forEach(el2 => el2.addEventListener('click', () => abrirModal(el2.dataset.edit)));
+  el.taskList.querySelectorAll('[data-delete]').forEach(el2 => el2.addEventListener('click', () => removerTarefa(el2.dataset.delete)));
 }
 
 function abrirModal(id) {
-  const tarefa = tarefas.find(t => t.id === id);
-  if (!tarefa) return;
-  elements.editId.value = tarefa.id;
-  elements.editTitle.value = tarefa.titulo;
-  elements.editDesc.value = tarefa.descricao || '';
-  elements.editCategory.value = tarefa.categoria;
-  elements.editPriority.value = tarefa.prioridade;
-  elements.editModal.classList.add('active');
+  const t = tarefas.find(x => x.id === id);
+  if (!t) return;
+  el.editId.value = t.id; el.editTitle.value = t.titulo;
+  el.editDesc.value = t.descricao || '';
+  el.editCategory.value = t.categoria; el.editPriority.value = t.prioridade;
+  el.editModal.classList.add('active');
 }
-
-function fecharModal() {
-  elements.editModal.classList.remove('active');
-}
+function fecharModal() { el.editModal.classList.remove('active'); }
 
 function carregarConfig() {
-  try {
-    const dados = localStorage.getItem(CONFIG_KEY);
-    return dados ? JSON.parse(dados) : { tema: 'padrao', fonte: 'padrao' };
-  } catch {
-    return { tema: 'padrao', fonte: 'padrao' };
-  }
+  try { return JSON.parse(localStorage.getItem(CONFIG_KEY)) || { tema: 'padrao', fonte: 'padrao' }; }
+  catch { return { tema: 'padrao', fonte: 'padrao' }; }
 }
-
-function salvarConfig(config) {
-  localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
-}
-
-function aplicarTema(tema) {
-  document.body.classList.toggle('theme-personalizado', tema === 'personalizado');
-  elements.themeOptions.querySelectorAll('.theme-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.theme === tema);
-  });
-}
-
-function aplicarFonte(fonte) {
+function salvarConfig(c) { localStorage.setItem(CONFIG_KEY, JSON.stringify(c)); }
+function aplicarConfig(c) {
+  document.body.classList.toggle('theme-personalizado', c.tema === 'personalizado');
+  el.themeOptions.querySelectorAll('.theme-btn').forEach(b => b.classList.toggle('active', b.dataset.theme === c.tema));
   document.body.classList.remove('fonte-serif', 'fonte-arial');
-  if (fonte !== 'padrao') {
-    document.body.classList.add('fonte-' + fonte);
-  }
-  elements.fontOptions.querySelectorAll('.font-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.font === fonte);
-  });
+  if (c.fonte !== 'padrao') document.body.classList.add('fonte-' + c.fonte);
+  el.fontOptions.querySelectorAll('.font-btn').forEach(b => b.classList.toggle('active', b.dataset.font === c.fonte));
 }
 
-function aplicarConfig(config) {
-  aplicarTema(config.tema);
-  aplicarFonte(config.fonte);
-}
+const config = carregarConfig();
+const telegramConfig = carregarTelegram();
+if (el.telegramChatId) el.telegramChatId.value = telegramConfig.chatId;
 
-let config = carregarConfig();
-let telegramConfig = carregarTelegram();
+// ─── Event listeners ───────────────────
 
-if (elements.telegramChatId) {
-  elements.telegramChatId.value = telegramConfig.chatId;
-
-  elements.btnSaveTelegram.addEventListener('click', () => {
-    const chatId = elements.telegramChatId.value.trim();
-    if (!chatId) return;
-    salvarTelegram({ chatId });
-    alert('Configuração salva!');
-  });
-
-  elements.btnTestTelegram.addEventListener('click', async () => {
-    const chatId = elements.telegramChatId.value.trim();
-    if (!chatId) { alert('Informe um Chat ID primeiro.'); return; }
-    salvarTelegram({ chatId });
-    const msg = '🔔 <b>Mentor Digital</b>\nConexão estabelecida com sucesso! ✅';
-    try {
-      const res = await fetch('/api/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId, message: msg }),
-      });
-      if (res.ok) {
-        alert('Mensagem enviada! Verifique seu Telegram.');
-      } else {
-        const err = await res.json();
-        alert('Erro: ' + (err.error || 'Falha ao enviar'));
-      }
-    } catch {
-      alert('Erro de conexão com o servidor.');
-    }
-  });
-}
-
-atualizarStatusTelegram();
-
-elements.btnCustomize.addEventListener('click', () => {
-  elements.customizePanel.classList.toggle('customize-hidden');
-});
-
-elements.closeCustomize.addEventListener('click', () => {
-  elements.customizePanel.classList.add('customize-hidden');
-});
-
-elements.themeOptions.addEventListener('click', (e) => {
-  const btn = e.target.closest('.theme-btn');
-  if (!btn) return;
-  config.tema = btn.dataset.theme;
-  salvarConfig(config);
-  aplicarConfig(config);
-});
-
-elements.fontOptions.addEventListener('click', (e) => {
-  const btn = e.target.closest('.font-btn');
-  if (!btn) return;
-  config.fonte = btn.dataset.font;
-  salvarConfig(config);
-  aplicarConfig(config);
-});
-
-elements.taskForm.addEventListener('submit', (e) => {
+el.taskForm.addEventListener('submit', e => {
   e.preventDefault();
-  const titulo = document.getElementById('taskTitle').value.trim();
-  const descricao = document.getElementById('taskDesc').value.trim();
-  const categoria = document.getElementById('taskCategory').value;
-  const prioridade = document.getElementById('taskPriority').value;
+  const titulo = $('taskTitle').value.trim();
   if (!titulo) return;
-  adicionarTarefa(titulo, descricao, categoria, prioridade);
-  elements.taskForm.reset();
-  document.getElementById('taskTitle').focus();
+  adicionarTarefa(titulo, $('taskDesc').value.trim(), $('taskCategory').value, $('taskPriority').value);
+  el.taskForm.reset(); $('taskTitle').focus();
 });
 
-elements.editForm.addEventListener('submit', (e) => {
+el.editForm.addEventListener('submit', e => {
   e.preventDefault();
-  const id = elements.editId.value;
-  const titulo = elements.editTitle.value.trim();
-  const descricao = elements.editDesc.value.trim();
-  const categoria = elements.editCategory.value;
-  const prioridade = elements.editPriority.value;
+  const id = el.editId.value, titulo = el.editTitle.value.trim();
   if (!id || !titulo) return;
-  editarTarefa(id, titulo, descricao, categoria, prioridade);
+  editarTarefa(id, titulo, el.editDesc.value.trim(), el.editCategory.value, el.editPriority.value);
   fecharModal();
 });
+el.cancelEdit.addEventListener('click', fecharModal);
+el.editModal.addEventListener('click', e => { if (e.target === el.editModal) fecharModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharModal(); });
 
-elements.cancelEdit.addEventListener('click', fecharModal);
-elements.editModal.addEventListener('click', (e) => {
-  if (e.target === elements.editModal) fecharModal();
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') fecharModal();
-});
-
-elements.filterTabs.addEventListener('click', (e) => {
+el.filterTabs.addEventListener('click', e => {
   const btn = e.target.closest('.filter-btn');
   if (!btn) return;
-  elements.filterTabs.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.filterTabs.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   filtroAtual = btn.dataset.filter;
   renderizar();
 });
 
-elements.searchInput.addEventListener('input', (e) => {
-  termoBusca = e.target.value;
-  renderizar();
+el.searchInput.addEventListener('input', e => { termoBusca = e.target.value; renderizar(); });
+
+el.btnSaveTelegram?.addEventListener('click', () => {
+  const chatId = el.telegramChatId.value.trim();
+  if (!chatId) return;
+  salvarTelegram({ chatId });
+  alert('Configuração salva!');
+});
+el.btnTestTelegram?.addEventListener('click', async () => {
+  const chatId = el.telegramChatId.value.trim();
+  if (!chatId) { alert('Informe um Chat ID primeiro.'); return; }
+  salvarTelegram({ chatId });
+  const msg = '🔔 <b>Mentor Digital</b>\nConexão estabelecida com sucesso! ✅';
+  try {
+    const res = await fetch('/api/telegram', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatId, message: msg }) });
+    if (res.ok) alert('Mensagem enviada! Verifique seu Telegram.');
+    else { const err = await res.json(); alert('Erro: ' + (err.error || 'Falha ao enviar')); }
+  } catch { alert('Erro de conexão com o servidor.'); }
 });
 
-carregarTarefas();
+el.btnCustomize?.addEventListener('click', () => el.customizePanel.classList.toggle('active'));
+el.closeCustomize?.addEventListener('click', () => el.customizePanel.classList.remove('active'));
+el.themeOptions?.addEventListener('click', e => {
+  const btn = e.target.closest('.theme-btn');
+  if (!btn) return;
+  config.tema = btn.dataset.theme; salvarConfig(config); aplicarConfig(config);
+});
+el.fontOptions?.addEventListener('click', e => {
+  const btn = e.target.closest('.font-btn');
+  if (!btn) return;
+  config.fonte = btn.dataset.font; salvarConfig(config); aplicarConfig(config);
+});
+
+atualizarStatusTelegram();
 aplicarConfig(config);
+carregarTarefas();
 
-// ─── Command bar ────────────────────────────────────────────
+// ─── Command bar ────────────────────────
+
 const COMMANDS = [
-  { cmd: '/add', desc: 'Título | Descrição | categoria | prioridade', usage: '/add Estudar | Revisar | diaria | alta' },
+  { cmd: '/add', desc: 'Título | Desc | categoria | prioridade' },
   { cmd: '/list', desc: 'Listar todas as tarefas' },
-  { cmd: '/tasks', desc: 'Listar todas as tarefas' },
-  { cmd: '/done', desc: '<id ou título> — Concluir tarefa' },
-  { cmd: '/delete', desc: '<id ou título> — Excluir tarefa' },
-  { cmd: '/stats', desc: 'Ver estatísticas do progresso' },
-  { cmd: '/help', desc: 'Mostrar esta ajuda' },
-]
+  { cmd: '/done', desc: '<id ou título> — Concluir' },
+  { cmd: '/delete', desc: '<id ou título> — Excluir' },
+  { cmd: '/excluir', desc: '<id ou título> — Excluir' },
+  { cmd: '/stats', desc: 'Ver estatísticas' },
+  { cmd: '/help', desc: 'Mostrar ajuda' },
+];
 
-const cmdInput = document.getElementById('cmdInput')
-const cmdSend = document.getElementById('cmdSend')
-const cmdSuggestions = document.getElementById('cmdSuggestions')
-let cmdFeedback = null
-
-if (cmdInput) {
-  cmdFeedback = document.createElement('div')
-  cmdFeedback.className = 'cmd-feedback'
-  cmdInput.closest('.cmd-bar').appendChild(cmdFeedback)
-
-  cmdInput.addEventListener('input', () => {
-    const val = cmdInput.value
+if (el.cmdInput) {
+  el.cmdInput.addEventListener('input', () => {
+    const val = el.cmdInput.value;
     if (val.startsWith('/')) {
-      const term = val.toLowerCase()
-      const matches = COMMANDS.filter(c => c.cmd.startsWith(term))
-      renderSuggestions(matches, val)
+      const term = val.toLowerCase();
+      const matches = COMMANDS.filter(c => c.cmd.startsWith(term));
+      renderSuggestions(matches);
     } else {
-      cmdSuggestions.classList.remove('show')
+      el.cmdSuggestions.classList.remove('show');
     }
-  })
+  });
 
-  cmdInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      executeCommand(cmdInput.value.trim())
-    }
-    if (e.key === 'Escape') cmdSuggestions.classList.remove('show')
-  })
+  el.cmdInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); executeCommand(el.cmdInput.value.trim()); }
+    if (e.key === 'Escape') el.cmdSuggestions.classList.remove('show');
+  });
 
-  cmdSend.addEventListener('click', () => executeCommand(cmdInput.value.trim()))
-
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('.cmd-bar')) cmdSuggestions.classList.remove('show')
-  })
+  el.cmdSend.addEventListener('click', () => executeCommand(el.cmdInput.value.trim()));
+  document.addEventListener('click', e => { if (!e.target.closest('.cmd-bar')) el.cmdSuggestions.classList.remove('show'); });
 }
 
-function renderSuggestions(matches, current) {
-  cmdSuggestions.innerHTML = ''
-  if (matches.length === 0 || matches.every(m => m.cmd === current)) {
-    cmdSuggestions.classList.remove('show')
-    return
-  }
+function renderSuggestions(matches) {
+  el.cmdSuggestions.innerHTML = '';
+  if (matches.length === 0) { el.cmdSuggestions.classList.remove('show'); return; }
   matches.forEach(m => {
-    const div = document.createElement('div')
-    div.className = 'cmd-suggestion-item'
-    div.innerHTML = `<span class="cmd-key">${m.cmd}</span> <span class="cmd-desc">${m.desc}</span>`
-    div.addEventListener('click', () => {
-      cmdInput.value = m.cmd + ' '
-      cmdInput.focus()
-      cmdSuggestions.classList.remove('show')
-    })
-    cmdSuggestions.appendChild(div)
-  })
-  cmdSuggestions.classList.add('show')
+    const div = document.createElement('div');
+    div.className = 'cmd-suggestion-item';
+    div.innerHTML = `<span class="cmd-key">${m.cmd}</span> <span class="cmd-desc">${m.desc}</span>`;
+    div.addEventListener('click', () => { el.cmdInput.value = m.cmd + ' '; el.cmdInput.focus(); el.cmdSuggestions.classList.remove('show'); });
+    el.cmdSuggestions.appendChild(div);
+  });
+  el.cmdSuggestions.classList.add('show');
 }
 
 function showFeedback(msg, type = 'info') {
-  cmdFeedback.textContent = msg
-  cmdFeedback.className = 'cmd-feedback show ' + type
-  setTimeout(() => cmdFeedback.classList.remove('show'), 4000)
+  el.cmdFeedback.textContent = msg;
+  el.cmdFeedback.className = 'cmd-feedback show ' + type;
+  setTimeout(() => el.cmdFeedback.classList.remove('show'), 5000);
 }
 
 async function executeCommand(text) {
-  cmdSuggestions.classList.remove('show')
-  cmdFeedback.classList.remove('show')
-
-  if (!text.startsWith('/')) return
+  el.cmdSuggestions.classList.remove('show');
+  el.cmdFeedback.classList.remove('show');
+  if (!text.startsWith('/')) return;
 
   if (/^\/(list|tasks)$/i.test(text)) {
-    showFeedback(`📋 ${tarefas.length} tarefas (${tarefas.filter(t => !t.concluida).length} pendentes)`, 'info')
-    return
+    showFeedback(`📋 ${tarefas.length} tarefas (${tarefas.filter(t => !t.concluida).length} pendentes, ${tarefas.filter(t => t.concluida).length} concluídas)`, 'info');
+    return;
   }
-
   if (/^\/help$/i.test(text)) {
-    const lines = COMMANDS.map(c => `${c.cmd} — ${c.desc}`)
-    showFeedback(lines.join('\n'), 'info')
-    return
+    showFeedback(COMMANDS.map(c => `${c.cmd} — ${c.desc}`).join('\n'), 'info');
+    return;
   }
-
   if (/^\/stats$/i.test(text)) {
-    const total = tarefas.length
-    const concluidas = tarefas.filter(t => t.concluida).length
-    const pendentes = total - concluidas
-    const prog = total > 0 ? Math.round((concluidas / total) * 100) : 0
-    showFeedback(`📊 Total: ${total} | Pendentes: ${pendentes} | Concluídas: ${concluidas} | Progresso: ${prog}%`, 'info')
-    return
+    const total = tarefas.length, concluidas = tarefas.filter(t => t.concluida).length;
+    showFeedback(`📊 Total: ${total} | Pendentes: ${total - concluidas} | Concluídas: ${concluidas} | Progresso: ${total > 0 ? Math.round((concluidas / total) * 100) : 0}%`, 'info');
+    return;
   }
 
-  const addMatch = text.match(/^\/add\s+(.+?)(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?$/i)
+  const addMatch = text.match(/^\/add\s+(.+?)(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?(?:\s*\|\s*(.+?))?$/i);
   if (addMatch) {
-    const titulo = addMatch[1]?.trim()
-    if (!titulo) { showFeedback('❌ Informe um título', 'error'); return }
-    const desc = addMatch[2]?.trim() || ''
-    const cat = ['diaria', 'semanal', 'mensal'].includes(addMatch[3]?.trim()) ? addMatch[3].trim() : 'diaria'
-    const pri = ['alta', 'media', 'baixa'].includes(addMatch[4]?.trim()) ? addMatch[4].trim() : 'media'
-    await adicionarTarefa(titulo, desc, cat, pri)
-    showFeedback(`✅ Tarefa "${titulo}" criada!`, 'success')
-    return
+    const titulo = addMatch[1]?.trim();
+    if (!titulo) { showFeedback('❌ Informe um título', 'error'); return; }
+    const desc = addMatch[2]?.trim() || '';
+    const cat = ['diaria', 'semanal', 'mensal'].includes(addMatch[3]?.trim()) ? addMatch[3].trim() : 'diaria';
+    const pri = ['alta', 'media', 'baixa'].includes(addMatch[4]?.trim()) ? addMatch[4].trim() : 'media';
+    await adicionarTarefa(titulo, desc, cat, pri);
+    showFeedback(`✅ "${titulo}" criada!`, 'success');
+    $('taskTitle').value = ''; $('taskDesc').value = '';
+    return;
   }
 
-  const doneMatch = text.match(/^\/done\s+(.+)/i)
+  const doneMatch = text.match(/^\/done\s+(.+)/i);
   if (doneMatch) {
-    const term = doneMatch[1].trim()
-    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()))
-    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return }
-    await toggleConcluida(t.id)
-    showFeedback(`✅ "${t.titulo}" ${t.concluida ? 'concluída' : 'reativada'}!`, 'success')
-    return
+    const term = doneMatch[1].trim();
+    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()));
+    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return; }
+    await toggleConcluida(t.id);
+    showFeedback(`✅ "${t.titulo}" ${t.concluida ? 'concluída' : 'reativada'}!`, 'success');
+    return;
   }
 
-  const delMatch = text.match(/^\/(?:delete|remove|excluir|exclua)\s+(.+)/i)
+  const delMatch = text.match(/^\/(?:delete|remove|excluir|exclua)\s+(.+)/i);
   if (delMatch) {
-    const term = delMatch[1].trim()
-    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()))
-    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return }
-    if (!confirm(`Excluir "${t.titulo}"?`)) return
-    await removerTarefa(t.id)
-    showFeedback(`🗑️ "${t.titulo}" excluída!`, 'success')
-    return
+    const term = delMatch[1].trim();
+    const t = tarefas.find(t => t.id.startsWith(term) || t.titulo.toLowerCase().includes(term.toLowerCase()));
+    if (!t) { showFeedback('❌ Tarefa não encontrada', 'error'); return; }
+    await removerTarefa(t.id);
+    showFeedback(`🗑️ "${t.titulo}" excluída!`, 'success');
+    return;
   }
 
-  showFeedback('❓ Comando não reconhecido. Use /help', 'error')
+  showFeedback('❓ Comando não reconhecido. Use /help', 'error');
 }

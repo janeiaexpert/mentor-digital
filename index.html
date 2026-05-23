@@ -3,101 +3,45 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mentor Digital - Gerenciador de Rotinas</title>
+  <title>Mentor Digital</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
     <div class="container header-content">
       <div class="header-top">
-        <div class="logo">
-          <span class="logo-icon">&#9670;</span>
-          <h1>Mentor Digital</h1>
-        </div>
+        <span class="logo-icon">&#9670;</span>
+        <h1>Mentor Digital</h1>
         <button class="btn-customize" id="btnCustomize">Personalizar</button>
       </div>
-      <p class="subtitle">Gerencie suas rotinas e acompanhe seu progresso</p>
+      <p class="subtitle">Gerencie suas rotinas</p>
     </div>
   </header>
 
   <main class="container">
-    <section class="dashboard">
-      <div class="card stat-card" data-stat="total">
-        <span class="stat-number" id="statTotal">0</span>
-        <span class="stat-label">Total</span>
-      </div>
-      <div class="card stat-card" data-stat="pendente">
-        <span class="stat-number" id="statPendente">0</span>
-        <span class="stat-label">Pendentes</span>
-      </div>
-      <div class="card stat-card" data-stat="concluida">
-        <span class="stat-number" id="statConcluida">0</span>
-        <span class="stat-label">Concluídas</span>
-      </div>
-      <div class="card stat-card" data-stat="progresso">
-        <span class="stat-number" id="statProgresso">0%</span>
-        <span class="stat-label">Progresso</span>
-      </div>
+    <section class="dashboard" id="dashboard">
+      <div class="card stat-card" data-stat="total"><span class="stat-number" id="statTotal">0</span><span class="stat-label">Total</span></div>
+      <div class="card stat-card" data-stat="pendente"><span class="stat-number" id="statPendente">0</span><span class="stat-label">Pendentes</span></div>
+      <div class="card stat-card" data-stat="concluida"><span class="stat-number" id="statConcluida">0</span><span class="stat-label">Concluídas</span></div>
+      <div class="card stat-card" data-stat="progresso"><span class="stat-number" id="statProgresso">0%</span><span class="stat-label">Progresso</span></div>
     </section>
 
-    <section class="customize-panel card customize-hidden" id="customizePanel">
-      <h2>Personalizar <button class="close-customize" id="closeCustomize">&#10005;</button></h2>
-      <div class="customize-section">
-        <label>Tema</label>
-        <div class="theme-options" id="themeOptions">
-          <button class="theme-btn active" data-theme="padrao">
-            <span>Padrão</span>
-            <span class="theme-preview">
-              <span style="background:#f0f2f5"></span>
-              <span style="background:#6c5ce7"></span>
-              <span style="background:#ffffff"></span>
-            </span>
-          </button>
-          <button class="theme-btn" data-theme="personalizado">
-            <span>Escuro + Marrom</span>
-            <span class="theme-preview">
-              <span style="background:#000000"></span>
-              <span style="background:#8B4513"></span>
-              <span style="background:#D4AF37"></span>
-            </span>
-          </button>
-        </div>
+    <section class="card cmd-bar">
+      <div class="cmd-input-wrap">
+        <input type="text" id="cmdInput" placeholder='Digite "/" para comandos...' autocomplete="off">
+        <button class="btn btn-primary" id="cmdSend">Enviar</button>
       </div>
-      <div class="customize-section">
-        <label>Fonte</label>
-        <div class="font-options" id="fontOptions">
-          <button class="font-btn active" data-font="padrao">Sistema <span class="font-name">Padrão</span></button>
-          <button class="font-btn" data-font="serif">Serif <span class="font-name" style="font-family:Georgia,serif">Georgia / Times</span></button>
-          <button class="font-btn" data-font="arial">Arial <span class="font-name" style="font-family:Arial,sans-serif;font-weight:700">Arial Bold</span></button>
-        </div>
-      </div>
+      <div class="cmd-suggestions" id="cmdSuggestions"></div>
+      <div class="cmd-feedback" id="cmdFeedback"></div>
     </section>
 
-    <section class="card telegram-section" id="telegramSection">
-      <h2>Telegram</h2>
-      <div class="telegram-status" id="telegramStatus">
-        <span class="status-dot offline"></span>
-        <span>Desconectado</span>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="telegramChatId">Chat ID</label>
-          <input type="text" id="telegramChatId" placeholder="Ex: 5332497916">
-        </div>
-      </div>
-      <div class="form-row">
-        <button class="btn btn-primary" id="btnTestTelegram">Testar Conexão</button>
-        <button class="btn btn-secondary" id="btnSaveTelegram">Salvar</button>
-      </div>
-    </section>
-
-    <section class="form-section card">
+    <section class="card form-section" id="formSection">
       <h2>Nova Tarefa</h2>
       <form id="taskForm">
         <div class="form-row">
           <div class="form-group">
             <label for="taskTitle">Título</label>
-            <input type="text" id="taskTitle" placeholder="Ex: Estudar revisão semanal" required>
+            <input type="text" id="taskTitle" placeholder="Ex: Estudar JavaScript" required>
           </div>
           <div class="form-group">
             <label for="taskCategory">Categoria</label>
@@ -133,21 +77,29 @@
         <button class="filter-btn" data-filter="semanal">Semanais</button>
         <button class="filter-btn" data-filter="mensal">Mensais</button>
       </div>
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Buscar tarefas...">
-      </div>
+      <div class="search-box"><input type="text" id="searchInput" placeholder="Buscar..."></div>
     </section>
 
     <section class="task-list" id="taskList">
-      <p class="empty-msg">Nenhuma tarefa encontrada. Crie sua primeira tarefa acima!</p>
+      <p class="empty-msg">Nenhuma tarefa encontrada.</p>
     </section>
 
-    <section class="cmd-bar card">
-      <div class="cmd-input-wrap">
-        <input type="text" id="cmdInput" placeholder="Digite / para comandos..." autocomplete="off">
-        <button class="btn btn-primary cmd-send" id="cmdSend">&#10148;</button>
+    <section class="card telegram-section">
+      <h2>Telegram</h2>
+      <div class="telegram-status" id="telegramStatus">
+        <span class="status-dot offline"></span>
+        <span>Desconectado</span>
       </div>
-      <div class="cmd-suggestions" id="cmdSuggestions"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="telegramChatId">Chat ID</label>
+          <input type="text" id="telegramChatId" placeholder="Envie /start para o bot">
+        </div>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-primary" id="btnTestTelegram">Testar</button>
+        <button class="btn btn-secondary" id="btnSaveTelegram">Salvar</button>
+      </div>
     </section>
   </main>
 
@@ -189,6 +141,27 @@
           <button type="submit" class="btn btn-primary">Salvar</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="customizePanel">
+    <div class="modal card">
+      <h2>Personalizar <button class="close-btn" id="closeCustomize">✕</button></h2>
+      <div class="customize-section">
+        <label>Tema</label>
+        <div class="theme-options" id="themeOptions">
+          <button class="theme-btn active" data-theme="padrao">Padrão</button>
+          <button class="theme-btn" data-theme="personalizado">Escuro</button>
+        </div>
+      </div>
+      <div class="customize-section">
+        <label>Fonte</label>
+        <div class="font-options" id="fontOptions">
+          <button class="font-btn active" data-font="padrao">Padrão</button>
+          <button class="font-btn" data-font="serif">Serif</button>
+          <button class="font-btn" data-font="arial">Arial</button>
+        </div>
+      </div>
     </div>
   </div>
 

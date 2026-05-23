@@ -2,16 +2,14 @@ const { listTasks, createTask, updateTask, deleteTask } = require('./lib/supabas
 const { sendMessage } = require('./lib/telegram')
 
 function esc(text) {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end()
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
 
   try {
     const id = req.query.id || null
@@ -23,9 +21,7 @@ module.exports = async (req, res) => {
 
     if (req.method === 'POST' && !id) {
       const body = req.body
-      if (!body.titulo?.trim()) {
-        return res.status(400).json({ error: 'titulo is required' })
-      }
+      if (!body.titulo?.trim()) return res.status(400).json({ error: 'titulo is required' })
       const result = await createTask({
         titulo: body.titulo.trim(),
         descricao: body.descricao?.trim() || '',
@@ -40,11 +36,9 @@ module.exports = async (req, res) => {
           const catLabels = { diaria: '📅 Diária', semanal: '📆 Semanal', mensal: '📋 Mensal' }
           const priLabels = { alta: '🔴 Alta', media: '🟡 Média', baixa: '🟢 Baixa' }
           const text = [
-            '✅ <b>Nova tarefa criada!</b>',
-            '',
+            '✅ <b>Nova tarefa criada!</b>', '',
             `<b>${esc(task.titulo)}</b>`,
-            task.descricao ? esc(task.descricao) : '',
-            '',
+            task.descricao ? esc(task.descricao) : '', '',
             `${catLabels[task.categoria] || task.categoria} | ${priLabels[task.prioridade] || task.prioridade}`,
           ].filter(Boolean).join('\n')
           await sendMessage(chatId, text)
@@ -77,6 +71,7 @@ module.exports = async (req, res) => {
 
     return res.status(404).json({ error: 'Not found' })
   } catch (error) {
+    console.error('tasks error:', error)
     return res.status(500).json({ error: error.message })
   }
 }

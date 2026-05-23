@@ -24,13 +24,7 @@ function listTasks() {
 }
 
 function getTask(id) {
-  // Aceita UUID completo ou prefixo de 8 caracteres
   return query('GET', `tasks?id=like.${id}*&id:cast=text&select=*`)
-}
-
-async function findTaskByPrefix(prefix) {
-  const data = await query('GET', `tasks?id=like.${prefix}%&select=id`)
-  return Array.isArray(data) && data.length > 0 ? data[0].id : null
 }
 
 function createTask(data) {
@@ -45,4 +39,4 @@ function deleteTask(id) {
   return query('DELETE', `tasks?id=like.${id}*&id:cast=text`)
 }
 
-module.exports = { listTasks, getTask, findTaskByPrefix, createTask, updateTask, deleteTask }
+module.exports = { listTasks, getTask, createTask, updateTask, deleteTask }
