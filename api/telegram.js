@@ -213,9 +213,15 @@ async function cmdDone(chatId, id) {
     return
   }
   try {
-    const result = await updateTask(id, { concluida: true, concluida_em: new Date().toISOString() })
-    const task = Array.isArray(result) ? result[0] : result
+    let res = await getTask(id)
+    let task = Array.isArray(res) ? res[0] : res
+    if (!task) {
+      const todas = await listTasks()
+      task = todas.find(t => t.titulo.toLowerCase().includes(id.toLowerCase()))
+      if (task) id = task.id
+    }
     if (!task) throw new Error('Not found')
+    await updateTask(id, { concluida: true, concluida_em: new Date().toISOString() })
     await sendMessage(chatId, `✅ <b>Tarefa concluída!</b>\n\n${esc(task.titulo)}`)
   } catch (err) {
     console.error('cmdDone error:', err)
@@ -229,8 +235,13 @@ async function cmdDelete(chatId, id) {
     return
   }
   try {
-    const result = await getTask(id)
-    const task = Array.isArray(result) ? result[0] : result
+    let res = await getTask(id)
+    let task = Array.isArray(res) ? res[0] : res
+    if (!task) {
+      const todas = await listTasks()
+      task = todas.find(t => t.titulo.toLowerCase().includes(id.toLowerCase()))
+      if (task) id = task.id
+    }
     if (!task) throw new Error('Not found')
     await deleteTask(id)
     await sendMessage(chatId, `🗑️ <b>Tarefa excluída:</b> ${esc(task.titulo)}`)
